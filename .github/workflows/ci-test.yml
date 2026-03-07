@@ -68,8 +68,38 @@ jobs:
           VTL_SKIP_AUTO_CLEANUP: true
           TZ: utc
 
-  test-backend:
-    name: Backend Tests
+  security:
+    name: Security Scan
+    runs-on: ubuntu-24.04
+    container:
+      image: ruby:3.4.8-slim
+    steps:
+      - name: Install system dependencies
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            build-essential git curl libyaml-dev
+
+      - uses: actions/checkout@v6
+
+      - name: Cache gems
+        uses: actions/cache@v4
+        with:
+          path: vendor/bundle
+          key: gems-${{ hashFiles('Gemfile.lock') }}
+          restore-keys: gems-
+
+      - name: Install gems
+        run: |
+          bundle config set --local deployment 'true'
+          bundle config set --local path 'vendor/bundle'
+          bundle install -j "$(nproc)"
+
+      - name: Brakeman
+        run: bundle exec brakeman -o /dev/stdout -o tmp/brakeman-report.html
+
+  test-rspec:
+    name: RSpec
     runs-on: ubuntu-24.04
     container:
       image: ruby:3.4.8-slim
@@ -118,6 +148,7 @@ jobs:
         with:
           path: vendor/bundle
           key: gems-${{ hashFiles('Gemfile.lock') }}
+          restore-keys: gems-
 
       - name: Install dependencies
         run: |
@@ -132,17 +163,73 @@ jobs:
       - name: Initialize database
         run: bundle exec rake zammad:db:init
 
-      - name: Security scan
-        run: bundle exec brakeman -o /dev/stdout -o tmp/brakeman-report.html
-
-      - name: Precompile assets
-        run: bundle exec rake assets:precompile
-
       - name: RSpec
         run: bundle exec rspec --exclude-pattern "spec/system/**/*_spec.rb" -t ~searchindex -t ~integration -t ~required_envs
 
-      - name: Reset database
-        run: bundle exec rake zammad:db:reset
+  test-minitest:
+    name: Minitest
+    runs-on: ubuntu-24.04
+    container:
+      image: ruby:3.4.8-slim
+    services:
+      postgresql:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: zammad
+          POSTGRES_PASSWORD: zammad
+          POSTGRES_DB: zammad_test
+        options: >-
+          --health-cmd "pg_isready -U zammad"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:8-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      RAILS_ENV: test
+      REDIS_URL: redis://redis:6379
+      Z_LOCALES: "en-us:de-de"
+      TZ: Europe/London
+    steps:
+      - name: Install system dependencies
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            build-essential git curl libpq-dev libimlib2-dev \
+            libyaml-dev gettext shared-mime-info gnupg
+
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Cache gems
+        uses: actions/cache@v4
+        with:
+          path: vendor/bundle
+          key: gems-${{ hashFiles('Gemfile.lock') }}
+          restore-keys: gems-
+
+      - name: Install dependencies
+        run: |
+          bundle config set --local deployment 'true'
+          bundle config set --local path 'vendor/bundle'
+          bundle install -j "$(nproc)"
+          pnpm install --frozen-lockfile
+
+      - name: Configure environment
+        run: bundle exec ruby .gitlab/configure_environment.rb
+
+      - name: Initialize database
+        run: bundle exec rake zammad:db:init
 
       - name: Minitest
         run: bundle exec rake test:units
