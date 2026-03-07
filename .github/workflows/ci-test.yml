@@ -103,7 +103,7 @@ jobs:
           apt-get update -qq
           apt-get install -y --no-install-recommends \
             build-essential git curl libpq-dev libimlib2-dev \
-            libyaml-dev gettext shared-mime-info
+            libyaml-dev gettext shared-mime-info gnupg
 
       - uses: actions/checkout@v6
 
