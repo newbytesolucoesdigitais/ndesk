@@ -105,7 +105,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5]
     container:
       image: ruby:3.4.8-slim
     services:
@@ -170,12 +170,17 @@ jobs:
 
       - name: Select spec files for shard
         run: |
-          find spec -name '*_spec.rb' -not -path 'spec/system/*' | sort > /tmp/all_specs.txt
-          total=$(wc -l < /tmp/all_specs.txt)
           shard=${{ matrix.shard }}
-          num_shards=4
-          awk "NR % $num_shards == ($shard - 1) % $num_shards" /tmp/all_specs.txt > /tmp/shard_specs.txt
-          echo "Running $(wc -l < /tmp/shard_specs.txt) of $total spec files (shard $shard/$num_shards)"
+          if [ "$shard" -eq 5 ]; then
+            find spec/db/migrate -name '*_spec.rb' | sort > /tmp/shard_specs.txt
+            echo "Running $(wc -l < /tmp/shard_specs.txt) migration specs (shard 5/5)"
+          else
+            find spec -name '*_spec.rb' -not -path 'spec/system/*' -not -path 'spec/db/migrate/*' | sort > /tmp/all_specs.txt
+            total=$(wc -l < /tmp/all_specs.txt)
+            num_shards=4
+            awk "NR % $num_shards == ($shard - 1) % $num_shards" /tmp/all_specs.txt > /tmp/shard_specs.txt
+            echo "Running $(wc -l < /tmp/shard_specs.txt) of $total spec files (shard $shard/4)"
+          fi
 
       - name: RSpec
         run: bundle exec rspec -t ~searchindex -t ~integration -t ~required_envs $(cat /tmp/shard_specs.txt | tr '\n' ' ')
