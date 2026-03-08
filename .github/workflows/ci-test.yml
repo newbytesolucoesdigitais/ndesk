@@ -7,7 +7,7 @@ on:
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-24.04
+    runs-on: runner-small
     steps:
       - uses: actions/checkout@v6
 
@@ -38,7 +38,7 @@ jobs:
 
   test-frontend:
     name: Frontend Tests (${{ matrix.shard }})
-    runs-on: ubuntu-24.04
+    runs-on: runner-small
     strategy:
       fail-fast: false
       matrix:
@@ -70,7 +70,7 @@ jobs:
 
   security:
     name: Security Scan
-    runs-on: ubuntu-24.04
+    runs-on: runner-small
     container:
       image: ruby:3.4.8-slim
     steps:
@@ -101,7 +101,7 @@ jobs:
 
   test-rspec:
     name: RSpec (${{ matrix.shard }}/${{ strategy.job-total }})
-    runs-on: ubuntu-24.04
+    runs-on: runner-medium
     strategy:
       fail-fast: false
       matrix:
@@ -189,7 +189,7 @@ jobs:
 
   test-minitest:
     name: Minitest
-    runs-on: ubuntu-24.04
+    runs-on: runner-medium
     container:
       image: ruby:3.4.8-slim
     services:
