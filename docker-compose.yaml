@@ -1,0 +1,108 @@
+# Coolify preview compose for NDesk (Zammad fork).
+#
+# Used by staging-host (Coolify) to spin up a preview environment per PR opened
+# against this repo. Each preview gets a fresh PG/Redis/Memcached + a freshly
+# built Zammad image (built from the PR's Dockerfile in this repo root).
+#
+# Production deploys do NOT use this file -- they use /opt/zammad/docker-compose.yml
+# on prod-ndesk, which pulls technewbyte/ndesk:latest from Docker Hub instead of
+# building from source.
+#
+# Constraints baked in:
+#   - Ephemeral data (no `volumes:` -- PG/Redis/Memcached recreated per PR)
+#   - Elasticsearch DISABLED (search non-functional in previews; saves ~1 GB
+#     and avoids the 6 GB ES container that prod runs)
+#   - Mem limits sized so ~3.5 GB total per preview env -> ~70 concurrent PRs
+#     fit on staging-host's 256 GB
+#   - Routes via Coolify's $SERVICE_FQDN_NGINX magic var (resolves to the
+#     per-PR FQDN, e.g. ndesk-pr-42.staging-preview.newbyte.net.br)
+#   - 172.16.0.0/12 in RAILS_TRUSTED_PROXIES so Coolify's Traefik proxy chain
+#     is trusted (otherwise Rails refuses to honor X-Forwarded-* headers)
+
+x-shared:
+  zammad-service: &zammad-service
+    build:
+      context: .
+    environment: &zammad-environment
+      MEMCACHE_SERVERS: zammad-memcached:11211
+      POSTGRESQL_DB: zammad_production
+      POSTGRESQL_HOST: zammad-postgresql
+      POSTGRESQL_USER: zammad
+      POSTGRESQL_PASS: zammad
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_OPTIONS: "?pool=20"
+      REDIS_URL: redis://zammad-redis:6379
+      ELASTICSEARCH_ENABLED: "false"
+      ZAMMAD_FQDN: $SERVICE_FQDN_NGINX
+      ZAMMAD_HTTP_TYPE: https
+      NGINX_SERVER_SCHEME: https
+      NGINX_SERVER_NAME: $SERVICE_FQDN_NGINX
+      RAILS_TRUSTED_PROXIES: '["127.0.0.1", "::1", "172.16.0.0/12", "10.0.0.0/8"]'
+      TZ: America/Sao_Paulo
+    depends_on:
+      - zammad-memcached
+      - zammad-postgresql
+      - zammad-redis
+    restart: unless-stopped
+
+services:
+  zammad-init:
+    <<: *zammad-service
+    command: ["zammad-init"]
+    depends_on:
+      - zammad-postgresql
+    restart: on-failure
+    user: 0:0
+
+  zammad-railsserver:
+    <<: *zammad-service
+    command: ["zammad-railsserver"]
+    mem_limit: 1500m
+    depends_on:
+      - zammad-init
+
+  zammad-websocket:
+    <<: *zammad-service
+    command: ["zammad-websocket"]
+    mem_limit: 512m
+    depends_on:
+      - zammad-init
+
+  zammad-scheduler:
+    <<: *zammad-service
+    command: ["zammad-scheduler"]
+    mem_limit: 512m
+    depends_on:
+      - zammad-init
+
+  zammad-nginx:
+    <<: *zammad-service
+    command: ["zammad-nginx"]
+    mem_limit: 256m
+    environment:
+      <<: *zammad-environment
+      SERVICE_FQDN_NGINX_8080: /
+    expose:
+      - "8080"
+    depends_on:
+      - zammad-railsserver
+
+  zammad-postgresql:
+    image: postgres:17.9-alpine
+    environment:
+      POSTGRES_DB: zammad_production
+      POSTGRES_USER: zammad
+      POSTGRES_PASSWORD: zammad
+    mem_limit: 512m
+    restart: unless-stopped
+
+  zammad-redis:
+    image: redis:8.6.1-alpine
+    mem_limit: 256m
+    restart: unless-stopped
+
+  zammad-memcached:
+    image: memcached:1.6.40-alpine
+    command: memcached -m 128M
+    mem_limit: 256m
+    restart: unless-stopped
