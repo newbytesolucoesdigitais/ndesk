@@ -149,7 +149,7 @@ No momento do `create`:
 
 - **Composable** observa `ticket.state` + `ticket.satisfactionRatable`. Abre o modal **uma vez**: quando o ticket **vira closed ao vivo**, ou **no mount** se já está fechado e `satisfactionRatable`. Após **"Agora não"**, grava um *dismissal* (localStorage por ticket) e **não reabre sozinho** — só o botão permanece.
 - Componente próprio `TicketSatisfactionDialog.vue` via os primitivos de dialog existentes (`useDialog` / `CommonDialog` em `shared/components`).
-- **Atenção (verificado):** **não existe** componente de estrelas em `shared/components/Form/fields/` (27 fields, nenhum de rating) → o seletor de estrelas **precisa ser construído** (componente custom ou novo field FormKit `FieldRating`).
+- **Estrelas (corrigido no harvest):** **já existe** um field FormKit de rating 1–5 em `app/frontend/apps/desktop/components/Form/fields/FieldRating/FieldRatingInput.vue` (acessível por teclado) → **reaproveitar** via `type: 'rating'` no schema do Form. *(A verificação anterior só olhou `shared/components/Form/fields/` e não achou; o componente vive no app desktop.)*
 - **Renderização só-cliente:** `v-if="!isTicketAgent"` em `TicketDetailViewContent.vue`, ou um sidebar plugin com `views: ['customer']` (`TicketSidebar/plugins/types.ts`).
 - **Ler settings no front (verificado):** via `useApplicationStore().config['csat_integration'|'csat_comment']` (também exposto como global `$c`), populado pela query `applicationConfig` que filtra `Setting.where(frontend: true)`. *(Não existe `useApplicationConfigStore`/`useProductConfig` — nomes corrigidos.)*
 - **"Agora não"** fecha o modal e **não reabre** automaticamente; um botão discreto **"Avaliar atendimento"** permanece no topo do ticket pra avaliar quando quiser.
