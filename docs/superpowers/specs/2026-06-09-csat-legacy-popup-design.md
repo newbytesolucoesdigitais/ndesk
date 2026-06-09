@@ -86,7 +86,7 @@ Gatilho dispara **no `load()` do ticket_zoom** (evento `ui::ticket::all::loaded`
 
 ## Tratamento de erros
 
-- `POST /csat/ratings`: não-cliente → 403; ticket não-finalizado → 403; nota duplicada → 422; payload inválido → 422. O modal exibe a mensagem e mantém o popup aberto em erro.
+- `POST /csat/ratings`: não-cliente → 403; ticket não-finalizado → 403; nota duplicada → **403** (recusada pela policy `already_rated?`); corrida de duplicação (índice único `(ticket_id, customer_id)`) → 422 (`RecordNotUnique`); payload inválido → 422. O modal exibe a mensagem e mantém o popup aberto em erro.
 - `App.LocalStorage` lança em cota cheia (Safari privado) — já tratado internamente (try/catch); a dispensa é best-effort.
 - **Deploy guard:** `assets:precompile` (Sprockets) precisa continuar verde — CoffeeScript/SCSS limpos; arquivos novos são auto-incluídos via `require_tree` (sem editar manifest).
 
@@ -94,7 +94,7 @@ Gatilho dispara **no `load()` do ticket_zoom** (evento `ui::ticket::all::loaded`
 
 - **Backend (TDD, RSpec):**
   - `Ticket::SatisfactionRating.ratable?` (unit) — as 4 condições.
-  - Request spec `POST /api/v1/csat/ratings`: cliente → 201; não-cliente → 403; ticket aberto → 403; segunda avaliação → 422; `csat_comment == 'off'` → comentário não persiste.
+  - Request spec `POST /api/v1/csat/ratings`: cliente → 201; não-cliente → 403; ticket aberto → 403; segunda avaliação → 403; `csat_comment == 'off'` → comentário não persiste.
   - Spec do payload do ticket: `satisfaction_ratable` presente/`true` só para o cliente quando avaliável; ausente/`false` caso contrário.
   - Regressão: specs mantidos (`/surveys`, `/stats`, policy, modelo, seeds) continuam verdes.
 - **Frontend legacy:** o app antigo praticamente não tem teste unitário de controller (QUnit esparso). Cobertura via **checklist de QA manual** (no plano) + as request specs do backend. (Sem Vitest aqui — é a UI antiga.)
@@ -104,6 +104,14 @@ Gatilho dispara **no `load()` do ticket_zoom** (evento `ui::ticket::all::loaded`
 - **Gatilho abertura + ao vivo (opção B, escolhida):** funciona ao vivo porque o legacy re-busca via REST a cada `Ticket:update` (`fetchMayBe → fetch`), recomputando o flag — não é cache-first como no Vue, então não tem o problema de aba background do Safari. Resiliência extra: re-fetch no `ws:login` + pull de 30 min.
 - **Safari:** estrelas sem `url(#id)` em symbols (lição do `NEWBYTE_WORKFLOW.md`).
 - **`filter_unauthorized_attributes`:** confirmar a assinatura/local exatos em `Ticket::Assets` na implementação (TDD com a spec de payload prova o hook).
+
+## Follow-ups conhecidos (minor, não-bloqueantes — da revisão final)
+
+Veredito da revisão final = **SHIP** (sem críticos/importantes). Itens de polish para depois:
+- **Dark-mode do `.csat-modal`**: as cores são legíveis no tema escuro, mas falta um bloco `@include dark` afinado (design §7). Opcional.
+- **N+1 (lista do cliente)**: `already_rated?` roda um `EXISTS` por ticket fechado na lista — limitado (cliente tem poucos tickets, índice único), aceito (decisão Q2). Otimizar só se aparecer.
+- **N+1 (`/csat/surveys`)**: `rating.agent&.fullname` por linha (até 100) — endpoint admin, fora do hot path; `includes(:agent)` resolve. Opcional.
+- **Catálogo i18n**: as msgids novas foram adicionadas de forma focada (sem `#:` refs); uma regeneração futura com a tooling do Zammad normaliza referências/stubs. Tradução pt-BR em runtime não é afetada.
 
 ## Limpeza (já feita)
 
