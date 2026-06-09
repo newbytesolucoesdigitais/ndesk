@@ -9,7 +9,7 @@
 
 ## 1. Objetivo
 
-Permitir que o **cliente avalie o atendimento (1–5 estrelas + comentário opcional)** através de um **popup que abre dentro do próprio ticket** assim que ele é finalizado. As avaliações são armazenadas, exibidas para admin/manager dentro do app, e **puxáveis via API REST por sistemas externos** — inclusive **métricas por atendente**.
+Permitir que o **cliente avalie o atendimento (1–5 estrelas + comentário opcional)** através de um **popup que abre dentro do próprio ticket** assim que ele é finalizado. As avaliações são armazenadas, exibidas **somente para Admin** dentro do app, e **puxáveis via API REST por sistemas externos** — inclusive **métricas por atendente**.
 
 ## 2. Decisões travadas
 
@@ -22,7 +22,7 @@ Permitir que o **cliente avalie o atendimento (1–5 estrelas + comentário opci
 | Entrega | **Popup in-app apenas.** Sem e-mail, sem página externa, sem token público / magic-link. |
 | Unicidade | **Write-once**: 1 avaliação por `[ticket, customer]`. |
 | Atribuição | Snapshot do **último atendente atribuído** no momento do registro; **imutável** depois. |
-| Visibilidade | **Admin/manager apenas** (in-app + API). |
+| Visibilidade | **Somente Admin** (in-app + API). Permissão `csat.read` só no papel Admin; sem group-scoping. |
 | API | **REST** + bearer token; raw `/surveys` + agregados `/stats` (com quebra por atendente). |
 | Frontend | **Vue desktop** (cliente e agente usam o mesmo app, com render condicional por papel). Mobile = fast-follow. |
 
@@ -48,7 +48,7 @@ mutation ticketSatisfactionRatingCreate(ticketId, score, comment)
         │  cria Ticket::SatisfactionRating, snapshot do agente (imutável)
         ▼
 ChecksClientNotification empurra a atualização
-   ├─► Admin/manager veem o resultado no ticket (campo gated por csat.read)
+   ├─► Admin vê o resultado no ticket (campo gated por csat.read)
    └─► API REST externa: GET /api/v1/csat/surveys e /api/v1/csat/stats
 ```
 
@@ -118,7 +118,7 @@ No momento do `create`:
 
 ### Campos em `Gql::Types::TicketType` (`app/graphql/gql/types/ticket_type.rb`)
 - `satisfaction: SatisfactionRatingType` — `{ score, comment, agent { ... }, createdAt }`.
-  **Auth de campo (verificado):** resolver inline que retorna `nil` quando não autorizado (padrão em `ticket_type.rb:126-130`), ou `FieldScope` via `TicketPolicy` (`app/policies/application_policy/field_scope.rb`). Regra: admin/manager (`csat.read`) vê tudo; o **próprio cliente** vê só a dele; demais → `null`.
+  **Auth de campo (verificado):** resolver inline que retorna `nil` quando não autorizado (padrão em `ticket_type.rb:126-130`), ou `FieldScope` via `TicketPolicy` (`app/policies/application_policy/field_scope.rb`). Regra: **somente Admin** (`csat.read`) vê tudo; o **próprio cliente** vê só a dele; demais → `null`.
 - `satisfactionRatable: Boolean!` — `true` quando `current_user == ticket.customer && state closed (por csat_closed_state_types) && sem rating`. Sinal que o front usa pra abrir o popup.
 
 ### Mutation
@@ -147,12 +147,12 @@ No momento do `create`:
 └─────────────────────────────────────────┘
 ```
 
-- **Composable** observa `ticket.state` + `ticket.satisfactionRatable`. Abre o modal quando o ticket **vira closed ao vivo**, ou **no mount** se já está fechado e `satisfactionRatable`.
+- **Composable** observa `ticket.state` + `ticket.satisfactionRatable`. Abre o modal **uma vez**: quando o ticket **vira closed ao vivo**, ou **no mount** se já está fechado e `satisfactionRatable`. Após **"Agora não"**, grava um *dismissal* (localStorage por ticket) e **não reabre sozinho** — só o botão permanece.
 - Componente próprio `TicketSatisfactionDialog.vue` via os primitivos de dialog existentes (`useDialog` / `CommonDialog` em `shared/components`).
 - **Atenção (verificado):** **não existe** componente de estrelas em `shared/components/Form/fields/` (27 fields, nenhum de rating) → o seletor de estrelas **precisa ser construído** (componente custom ou novo field FormKit `FieldRating`).
 - **Renderização só-cliente:** `v-if="!isTicketAgent"` em `TicketDetailViewContent.vue`, ou um sidebar plugin com `views: ['customer']` (`TicketSidebar/plugins/types.ts`).
 - **Ler settings no front (verificado):** via `useApplicationStore().config['csat_integration'|'csat_comment']` (também exposto como global `$c`), populado pela query `applicationConfig` que filtra `Setting.where(frontend: true)`. *(Não existe `useApplicationConfigStore`/`useProductConfig` — nomes corrigidos.)*
-- **"Agora não"** fecha o modal; um botão discreto **"Avaliar atendimento"** permanece no topo do ticket pra avaliar depois (sem martelar).
+- **"Agora não"** fecha o modal e **não reabre** automaticamente; um botão discreto **"Avaliar atendimento"** permanece no topo do ticket pra avaliar quando quiser.
 - Pós-envio: estado "Obrigado!"; `satisfactionRatable` vira `false`, não reabre.
 - Renderização condicional por papel via o `view`/`isTicketAgent` já existente em `TicketDetailViewContent.vue`.
 
@@ -194,15 +194,15 @@ Semeados em `db/seeds/settings.rb` (padrão `Setting.create_if_not_exists`, lido
 
 | Setting | Tipo / default | Função | `frontend` |
 |---|---|---|---|
-| `csat_integration` | boolean / `true` | Liga/desliga a feature sem deploy. | sim |
+| `csat_integration` | boolean / **`false`** | Liga/desliga a feature sem deploy. **Sobe desligado** — admin liga após validar (rollout controlado). | sim |
 | `csat_comment` | select `off/optional/required` / `optional` | Mostra/obriga o comentário. | sim |
-| `csat_closed_state_types` | lista / `['closed']` | Quais estados disparam o popup. | (backend) |
+| `csat_closed_state_types` | lista de **state_types** / `['closed']` | Quais **categorias** de estado disparam o popup. `closed` já cobre estados **custom** dessa categoria. | (backend) |
 
 Permissões: **`admin.csat`** para editar os settings; **`csat.read`** para a API externa e a exibição admin in-app.
 
 ## 12. Casos de borda (resolvidos)
 
-- **"Finalizado"** = `state_type closed` (via `csat_closed_state_types`); `merged` não conta.
+- **"Finalizado"** = qualquer estado cuja **categoria** (`state_type`) esteja em `csat_closed_state_types` (default `closed`) — **inclui estados finais custom** mapeados como "fechado". `merged` não conta. Estado final numa categoria diferente → adiciona-se ao setting.
 - **Só o `customer_id` real** avalia — não colegas da organização.
 - **Reabriu / refechou:** já avaliado → não repergunta (write-once + índice único); ainda não avaliado → segue podendo.
 - **Cliente sempre logado** → sem token, sem usuário inativo.
@@ -213,7 +213,7 @@ Permissões: **`admin.csat`** para editar os settings; **`csat.read`** para a AP
 - ✅ **Tempo real para o cliente — confirmado:** a subscription `ticketUpdates` autoriza o cliente via `TicketPolicy` (`ticket_policy.rb:83-104`); a mudança de `state` chega à visão do cliente. (Risco rebaixado.)
 - **`ChecksClientNotification` broadcast scope:** por padrão notifica amplo; escopar `client_notification_send_to` para não gerar ruído/vazar existência de rating.
 - **`response_rate` no `/stats`:** exige contar "fechados elegíveis" — definir a janela (por `created_at` do ticket? por data de fechamento?) na implementação do agregado.
-- **Permissões:** criar `admin.csat` e `csat.read` em `db/seeds/permissions.rb` (`Permission.create_if_not_exists`). **Confirmar na implementação o mecanismo de atribuição a papéis** — a verificação não localizou onde Admin/Manager ganham a permissão (provavelmente seeds de Role / `permission_grant`).
+- **Permissões:** criar `admin.csat` e `csat.read` em `db/seeds/permissions.rb` (`Permission.create_if_not_exists`). **Confirmar na implementação o mecanismo de atribuição a papéis** — a verificação não localizou onde o papel **Admin** ganha a permissão (provavelmente seeds de Role / `permission_grant`). `csat.read` vai só no Admin.
 
 ## 14. Estratégia de testes
 
