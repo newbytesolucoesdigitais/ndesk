@@ -47,7 +47,7 @@ Popup abre (ao vivo, ou no próximo open do ticket finalizado)
 mutation ticketSatisfactionRatingCreate(ticketId, score, comment)
         │  cria Ticket::SatisfactionRating, snapshot do agente (imutável)
         ▼
-ChecksClientNotification empurra a atualização
+Após o submit, o front refaz a query do ticket (refetch)
    ├─► Admin vê o resultado no ticket (campo gated por csat.read)
    └─► API REST externa: GET /api/v1/csat/surveys e /api/v1/csat/stats
 ```
@@ -78,7 +78,6 @@ add_index :ticket_satisfaction_ratings, %i[agent_id created_at]    # agregação
 ### Modelo
 ```ruby
 class Ticket::SatisfactionRating < ApplicationModel
-  include ChecksClientNotification
   include HasDefaultModelUserRelations   # created_by/updated_by
 
   belongs_to :ticket
@@ -128,7 +127,7 @@ No momento do `create`:
 
 ### Tempo real
 - **Reaproveita a subscription `ticketUpdates`** (`app/graphql/gql/subscriptions/ticket_updates.rb`; front `shared/entities/ticket/graphql/subscriptions/ticketUpdates.api.ts`). **Verificado** que o **cliente** também recebe: a subscription não tem auth própria; usa `TicketType` → `HasPunditAuthorization` → `TicketPolicy.show?` → `customer_access?` (`app/policies/ticket_policy.rb:83-104`). Logo a mudança de `state` chega à visão do cliente sem polling → o front reavalia `satisfactionRatable`. **Sem subscription nova.**
-- `ChecksClientNotification` no modelo propaga o novo rating para os clientes admin abertos no ticket. (Escopar `client_notification_send_to` para não vazar/ruído — ver riscos.)
+- **Admin é on-load (decisão do grill):** criar uma Avaliação não altera o Ticket, então `ticketUpdates` não dispara pro admin — ele vê a nota ao **abrir/recarregar** o ticket. O **cliente que avaliou** dispara um **refetch** da query do ticket após a mutation (`satisfactionRatable` vira `false` + mostra a nota). **Sem `ChecksClientNotification`** no modelo.
 
 ## 8. Popup (Vue desktop — visão do cliente)
 
@@ -211,8 +210,8 @@ Permissões: **`admin.csat`** para editar os settings; **`csat.read`** para a AP
 ## 13. Riscos / pontos de atenção
 
 - ✅ **Tempo real para o cliente — confirmado:** a subscription `ticketUpdates` autoriza o cliente via `TicketPolicy` (`ticket_policy.rb:83-104`); a mudança de `state` chega à visão do cliente. (Risco rebaixado.)
-- **`ChecksClientNotification` broadcast scope:** por padrão notifica amplo; escopar `client_notification_send_to` para não gerar ruído/vazar existência de rating.
-- **`response_rate` no `/stats`:** exige contar "fechados elegíveis" — definir a janela (por `created_at` do ticket? por data de fechamento?) na implementação do agregado.
+- ✅ **Push em tempo real — resolvido (grill):** `ChecksClientNotification` removido do modelo; Admin vê on-load, cliente faz refetch pós-submit. Sem broadcast/ruído.
+- ✅ **`response_rate` — resolvido (grill):** coorte = tickets finalizados na janela por `close_at` (populado por `Ticket::SetsCloseTime`); taxa = finalizados-com-avaliação ÷ finalizados. Métrica geral (não por atendente). Ver `docs/csat/CONTEXT.md` (Taxa de Resposta).
 - **Permissões:** criar `admin.csat` e `csat.read` em `db/seeds/permissions.rb` (`Permission.create_if_not_exists`). **Confirmar na implementação o mecanismo de atribuição a papéis** — a verificação não localizou onde o papel **Admin** ganha a permissão (provavelmente seeds de Role / `permission_grant`). `csat.read` vai só no Admin.
 
 ## 14. Estratégia de testes
