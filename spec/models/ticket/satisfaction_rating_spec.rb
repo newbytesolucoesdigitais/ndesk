@@ -71,5 +71,18 @@ RSpec.describe Ticket::SatisfactionRating, type: :model do
         expect(rating.agent_id).to eq(agent.id)
       end
     end
+
+    context 'with multiple human owners reassigned out of id order' do
+      let(:ticket) { create(:ticket, group:, customer:, owner_id: 1) }
+
+      it 'returns the most recently assigned human owner, not the highest id' do
+        earlier = create(:agent, groups: [group]) # lower id
+        latest  = create(:agent, groups: [group]) # higher id
+        ticket.update!(owner: latest)             # assign higher-id FIRST
+        ticket.update!(owner: earlier)            # assign lower-id LAST (most recent)
+        ticket.update!(owner_id: 1)               # unassign
+        expect(rating.agent_id).to eq(earlier.id)
+      end
+    end
   end
 end

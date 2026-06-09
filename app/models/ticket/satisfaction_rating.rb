@@ -27,9 +27,10 @@ class Ticket::SatisfactionRating < ApplicationModel
   def resolve_last_agent
     return ticket.owner_id if ticket.owner_id.present? && ticket.owner_id != 1
 
-    last = ticket.history_get
-                 .select { |h| h['attribute'] == 'owner' && h['value_from'].present? }
-                 .filter_map { |h| h['id_to'] || h['value_from'] }
-    User.where(id: last).where.not(id: 1).last&.id
+    ticket.history_get
+          .select { |h| h['attribute'] == 'owner' }
+          .filter_map { |h| h['id_to'] }
+          .reverse
+          .find { |id| id != 1 && User.exists?(id:) }
   end
 end

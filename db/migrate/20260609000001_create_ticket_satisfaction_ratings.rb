@@ -1,6 +1,6 @@
 # Copyright (C) 2012-2026 Zammad Foundation, https://zammad-foundation.org/
 
-class CreateTicketSatisfactionRatings < ActiveRecord::Migration[7.2]
+class CreateTicketSatisfactionRatings < ActiveRecord::Migration[8.0]
   def change
     create_table :ticket_satisfaction_ratings, id: :integer do |t|
       t.references :ticket,   null: false, type: :integer, foreign_key: { to_table: :tickets }
