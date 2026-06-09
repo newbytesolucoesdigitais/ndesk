@@ -36,6 +36,7 @@ export const initializeTicketInformation = (internalId: Ref<number | string>) =>
     ticket,
     ticketId,
     ticketInternalId: internalId as Ref<number>,
+    ticketQuery,
   }
 }
 
