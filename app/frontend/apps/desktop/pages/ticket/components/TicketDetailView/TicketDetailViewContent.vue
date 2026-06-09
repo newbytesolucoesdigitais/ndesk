@@ -79,7 +79,6 @@ import {
   initializeTicketInformation,
   provideTicketInformation,
 } from '../../composables/useTicketInformation.ts'
-import { useTicketSatisfaction } from '../../composables/useTicketSatisfaction.ts'
 import { useTicketSidebar, useProvideTicketSidebar } from '../../composables/useTicketSidebar.ts'
 import { type TicketSidebarContext, TicketSidebarScreenType } from '../../types/sidebar.ts'
 import TicketSidebar from '../TicketSidebar.vue'
@@ -97,10 +96,7 @@ const props = defineProps<Props>()
 const internalId = toRef(props, 'internalId')
 const isReplyPinned = ref(false)
 
-const { ticket, ticketId, ticketQuery, ...ticketInformation } =
-  initializeTicketInformation(internalId)
-
-useTicketSatisfaction(ticket, () => ticketQuery.refetch())
+const { ticket, ticketId, ...ticketInformation } = initializeTicketInformation(internalId)
 
 const onAddArticleCallback = ({ articlesQuery }: AddArticleCallbackArgs) => {
   return (articlesQuery as QueryHandler).refetch()

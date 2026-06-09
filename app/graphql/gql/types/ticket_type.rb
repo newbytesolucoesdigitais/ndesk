@@ -39,10 +39,6 @@ module Gql::Types
 
     field :policy, Gql::Types::Policy::TicketType, null: false, method: :itself
 
-    field :satisfaction, Gql::Types::Ticket::SatisfactionRatingType, null: true, description: 'The customer satisfaction rating, if visible to the current user'
-
-    field :satisfaction_ratable, Boolean, null: false, description: 'Whether the current user (customer) can submit a rating now'
-
     field :number, String, null: false
     field :title, String, null: false
 
@@ -155,25 +151,6 @@ module Gql::Types
       end
 
       output.compact_blank.presence
-    end
-
-    def satisfaction
-      return nil if !Setting.get('csat_integration')
-
-      rating = @object.satisfaction_rating
-      return nil if rating.nil?
-      return rating if context.current_user.id == rating.customer_id
-      return rating if context.current_user.permissions?('csat.read')
-
-      nil
-    end
-
-    def satisfaction_ratable
-      return false if !Setting.get('csat_integration')
-      return false if context.current_user.id != @object.customer_id
-      return false if Setting.get('csat_closed_state_types').exclude?(@object.state.state_type.name)
-
-      !::Ticket::SatisfactionRating.exists?(ticket_id: @object.id, customer_id: @object.customer_id)
     end
 
     private

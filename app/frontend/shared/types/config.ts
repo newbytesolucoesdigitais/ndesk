@@ -25,8 +25,6 @@ export interface ConfigList {
   chat_agent_idle_timeout: string
   checklist?: boolean | null
   core_workflow_ajax_mode?: boolean | null
-  csat_comment?: string
-  csat_integration?: boolean
   cti_integration?: boolean | null
   customer_ticket_create?: boolean | null
   customer_ticket_create_group_ids: unknown

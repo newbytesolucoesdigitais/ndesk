@@ -128,7 +128,6 @@ export const defaultTicket = (
       },
       objectAttributeValues: [],
       stateColorCode: EnumTicketStateColorCode.Open,
-      satisfactionRatable: false,
       preferences,
     },
   })
