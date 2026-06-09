@@ -1,0 +1,9 @@
+fragment satisfactionRatingAttributes on TicketSatisfactionRating {
+  score
+  comment
+  agent {
+    id
+    fullname
+  }
+  createdAt
+}

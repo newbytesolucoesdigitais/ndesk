@@ -102,4 +102,8 @@ fragment ticketAttributes on Ticket {
     github
     gitlab
   }
+  satisfactionRatable
+  satisfaction {
+    ...satisfactionRatingAttributes
+  }
 }

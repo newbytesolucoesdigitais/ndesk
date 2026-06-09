@@ -103,4 +103,5 @@ export const testOptionsTopBar: TicketById = nullableMock({
   closeEscalationAt: null,
   updateEscalationAt: null,
   initialChannel: null,
+  satisfactionRatable: false,
 })

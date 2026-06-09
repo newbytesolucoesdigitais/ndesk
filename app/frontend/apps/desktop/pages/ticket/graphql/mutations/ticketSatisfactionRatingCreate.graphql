@@ -1,0 +1,10 @@
+mutation ticketSatisfactionRatingCreate($input: TicketSatisfactionRatingInput!) {
+  ticketSatisfactionRatingCreate(input: $input) {
+    satisfactionRating {
+      ...satisfactionRatingAttributes
+    }
+    errors {
+      ...errors
+    }
+  }
+}
