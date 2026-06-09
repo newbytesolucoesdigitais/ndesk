@@ -453,7 +453,9 @@ class App.TicketZoomCsatModal extends App.ControllerModal
 
   markDismissed: =>
     return if @submitted
-    App.LocalStorage.set("csat_dismissed_ticket_#{@ticketId}", true)
+    # App.LocalStorage assinatura: set(key, value, user_id) — user_id truthy => chave
+    # "personal::<id>::<key>" (escopo por usuário). Mesma assinatura no get (Task 5).
+    App.LocalStorage.set("csat_dismissed_ticket_#{@ticketId}", true, App.User.current()?.id)
 ```
 
 - [ ] **Step 3: Adicionar o SCSS (estrelas Safari-safe via texto ★)**
@@ -532,7 +534,7 @@ No mesmo arquivo, adicionar este método logo após o `load:` (antes de `meta:`)
     return if !@currentTicketRaw or !@currentTicketRaw.satisfaction_ratable
     return if !@ticket or @ticket.currentView() isnt 'customer'
     return if @ticket.customer_id isnt App.User.current()?.id
-    return if App.LocalStorage.get("csat_dismissed_ticket_#{@ticket_id}", false)
+    return if App.LocalStorage.get("csat_dismissed_ticket_#{@ticket_id}", App.User.current()?.id)
     return if @csatModalShown
 
     @csatModalShown = true
