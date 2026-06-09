@@ -27821,3 +27821,69 @@ msgstr "∅ tempo de espera hoje"
 #~ "Intervalo de tempo no qual o atendente deve prestar outro retorno "
 #~ "informando as tratativas sobre o trabalho a ser feito ou que já esteja em "
 #~ "andamento para se resolver o chamado aberto."
+
+msgid "How was your support?"
+msgstr "Como foi o seu atendimento?"
+
+msgid "Rate this ticket"
+msgstr "Avalie este atendimento"
+
+msgid "Not now"
+msgstr "Agora não"
+
+msgid "Satisfaction"
+msgstr "Satisfação"
+
+msgid "Rating: %s/5"
+msgstr "Avaliação: %s/5"
+
+msgid "Rated by %s"
+msgstr "Avaliado por %s"
+
+msgid "Not rated yet"
+msgstr "Ainda não avaliado"
+
+msgid "No rating"
+msgstr "Sem avaliação"
+
+msgid "Enable CSAT"
+msgstr "Ativar CSAT"
+
+msgid "CSAT comment"
+msgstr "Comentário do CSAT"
+
+msgid "CSAT trigger states"
+msgstr "Estados que disparam o CSAT"
+
+msgid "CSAT"
+msgstr "CSAT"
+
+msgid "CSAT - Read"
+msgstr "CSAT - Leitura"
+
+msgid "View CSAT surveys and statistics."
+msgstr "Visualizar avaliações e estatísticas de CSAT."
+
+msgid "Manage Customer Satisfaction settings."
+msgstr "Gerenciar configurações de Satisfação do Cliente."
+
+msgid "Defines if customers are asked to rate resolved tickets."
+msgstr "Define se os clientes são solicitados a avaliar atendimentos finalizados."
+
+msgid "Whether the optional comment field is shown/required in the rating popup."
+msgstr "Define se o campo de comentário opcional é exibido/obrigatório no popup de avaliação."
+
+msgid "Which ticket state categories trigger the rating popup."
+msgstr "Quais categorias de estado do ticket disparam o popup de avaliação."
+
+msgid "CSAT is not enabled"
+msgstr "O CSAT não está ativado"
+
+msgid "Only the ticket customer can rate"
+msgstr "Apenas o cliente do ticket pode avaliar"
+
+msgid "Ticket is not finalized"
+msgstr "O ticket não está finalizado"
+
+msgid "This ticket was already rated"
+msgstr "Este ticket já foi avaliado"
