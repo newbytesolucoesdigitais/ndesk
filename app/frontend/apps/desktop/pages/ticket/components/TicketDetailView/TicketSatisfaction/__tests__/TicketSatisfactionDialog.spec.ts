@@ -25,6 +25,54 @@ describe('TicketSatisfactionDialog', () => {
     expect(wrapper.getByRole('button', { name: 'Submit' })).toBeInTheDocument()
   })
 
+  it('calls onDismiss when closed via the cancel button', async () => {
+    const onDismiss = vi.fn()
+
+    const wrapper = renderComponent(TicketSatisfactionDialog, {
+      props: {
+        name: 'ticket-satisfaction',
+        onDismiss,
+      },
+      form: true,
+      dialog: true,
+      router: true,
+    })
+
+    await waitForNextTick(true)
+
+    await wrapper.events.click(wrapper.getByRole('button', { name: 'Not now' }))
+
+    expect(onDismiss).toHaveBeenCalledOnce()
+  })
+
+  it('does not call onDismiss when the survey is submitted', async () => {
+    const onDismiss = vi.fn()
+    const onSubmit = vi.fn()
+
+    const wrapper = renderComponent(TicketSatisfactionDialog, {
+      props: {
+        name: 'ticket-satisfaction',
+        onDismiss,
+        onSubmit,
+      },
+      form: true,
+      dialog: true,
+      router: true,
+    })
+
+    await waitForNextTick(true)
+
+    await getNode('score')?.input(5)
+
+    await wrapper.events.click(wrapper.getByRole('button', { name: 'Submit' }))
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalled()
+    })
+
+    expect(onDismiss).not.toHaveBeenCalled()
+  })
+
   it('delivers the submit payload to its opener', async () => {
     const onSubmit = vi.fn()
 

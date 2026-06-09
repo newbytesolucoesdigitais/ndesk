@@ -1,7 +1,7 @@
 <!-- Copyright (C) 2012-2026 Zammad Foundation, https://zammad-foundation.org/ -->
 
 <script setup lang="ts">
-import { computed, markRaw } from 'vue'
+import { computed, markRaw, ref } from 'vue'
 
 import Form from '#shared/components/Form/Form.vue'
 import type { FormSchemaNode } from '#shared/components/Form/types.ts'
@@ -54,11 +54,17 @@ const schema = markRaw([
 
 const { form, formNodeId } = useForm()
 
-const dismissed = { value: false }
+// Tracks whether this dialog instance has already resolved (submitted or
+// dismissed) so the dismissal side effect runs at most once.
+const resolved = ref(false)
 
-const close = (cancel?: boolean) => {
-  if (cancel && !dismissed.value) {
-    dismissed.value = true
+// Every non-submit exit path (X button, backdrop click, Escape key, and the
+// footer cancel button) funnels through `CommonDialog`'s `close` event, which
+// may emit `cancel` as `undefined`. Treat any such close as a dismissal so the
+// `onDismiss` persistence runs regardless of which path the user took.
+const close = () => {
+  if (!resolved.value) {
+    resolved.value = true
     props.onDismiss?.()
   }
 
@@ -66,6 +72,8 @@ const close = (cancel?: boolean) => {
 }
 
 const submit = (data: { score: string; comment?: string }) => {
+  resolved.value = true
+
   props.onSubmit?.({
     score: Number(data.score),
     comment: data.comment || undefined,
@@ -90,7 +98,12 @@ const submit = (data: { score: string; comment?: string }) => {
     />
 
     <template #footer>
-      <CommonDialogActionFooter :action-label="__('Submit')" :form-node-id="formNodeId" />
+      <CommonDialogActionFooter
+        :action-label="__('Submit')"
+        :cancel-label="__('Not now')"
+        :form-node-id="formNodeId"
+        @cancel="close"
+      />
     </template>
   </CommonDialog>
 </template>
