@@ -1,5 +1,7 @@
 // Copyright (C) 2012-2026 Zammad Foundation, https://zammad-foundation.org/
 
+import { useApplicationStore } from '#shared/stores/application.ts'
+
 import { TicketSidebarScreenType } from '#desktop/pages/ticket/types/sidebar.ts'
 
 import TicketSidebarSatisfaction from '../TicketSidebarSatisfaction/TicketSidebarSatisfaction.vue'
@@ -14,4 +16,9 @@ export default <TicketSidebarPlugin>{
   views: ['agent'],
   icon: 'star',
   order: 700,
+  available: () => {
+    const { config } = useApplicationStore()
+
+    return Boolean(config.csat_integration)
+  },
 }
