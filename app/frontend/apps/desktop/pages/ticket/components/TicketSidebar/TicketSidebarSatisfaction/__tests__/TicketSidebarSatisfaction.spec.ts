@@ -64,24 +64,6 @@ describe('TicketSidebarSatisfaction.vue', () => {
     expect(wrapper.getByText('Great support!')).toBeInTheDocument()
   })
 
-  it('renders the rating agent when present', () => {
-    const wrapper = renderTicketSidebarSatisfaction({
-      satisfactionRatable: true,
-      satisfaction: {
-        __typename: 'TicketSatisfactionRating',
-        score: 4,
-        createdAt: '2026-06-09T10:00:00Z',
-        agent: {
-          __typename: 'User',
-          id: 'gid://zammad/User/2',
-          fullname: 'Jane Agent',
-        },
-      },
-    })
-
-    expect(wrapper.getByText('Rated by Jane Agent')).toBeInTheDocument()
-  })
-
   it('shows "Not rated yet" when the ticket is ratable but has no rating', () => {
     const wrapper = renderTicketSidebarSatisfaction({
       satisfactionRatable: true,

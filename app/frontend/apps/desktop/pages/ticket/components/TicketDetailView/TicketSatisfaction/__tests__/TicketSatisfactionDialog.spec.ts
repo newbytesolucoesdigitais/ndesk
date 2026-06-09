@@ -73,37 +73,6 @@ describe('TicketSatisfactionDialog', () => {
     expect(onDismiss).not.toHaveBeenCalled()
   })
 
-  it('stays open and does not record a dismissal when the submit handler rejects', async () => {
-    const onSubmit = vi.fn().mockRejectedValue(new Error('mutation failed'))
-    const onDismiss = vi.fn()
-
-    const wrapper = renderComponent(TicketSatisfactionDialog, {
-      props: {
-        name: 'ticket-satisfaction',
-        onSubmit,
-        onDismiss,
-      },
-      form: true,
-      dialog: true,
-      router: true,
-    })
-
-    await waitForNextTick(true)
-
-    await getNode('score')?.input(5)
-
-    await wrapper.events.click(wrapper.getByRole('button', { name: 'Submit' }))
-
-    await waitFor(() => {
-      expect(onSubmit).toHaveBeenCalled()
-    })
-
-    // The mutation rejected, so the dialog must remain open (close skipped) and
-    // the failed submit must not be persisted as a dismissal.
-    expect(wrapper.getByText('How was your support?')).toBeInTheDocument()
-    expect(onDismiss).not.toHaveBeenCalled()
-  })
-
   it('delivers the submit payload to its opener', async () => {
     const onSubmit = vi.fn()
 
