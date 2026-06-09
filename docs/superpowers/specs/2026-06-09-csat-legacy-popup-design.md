@@ -38,7 +38,7 @@ CsatRatingsController#create → authorize!(rating, :create?) [policy existente]
 modal fecha; "Agora não" grava dispensa em App.LocalStorage (não reabre)
 ```
 
-Gatilho **no carregamento via REST** (o flag vem no payload) — **não depende de WebSocket/subscription**, então não tem o problema de aba em segundo plano do Safari que vimos na tentativa Vue.
+Gatilho dispara **no `load()` do ticket_zoom** (evento `ui::ticket::all::loaded`), que roda tanto na **abertura** quanto em **toda atualização ao vivo**. O ao-vivo funciona porque o legacy, ao receber o push `Ticket:update`, chama `fetchMayBe → fetch()` = um **GET REST `?all=true` novo**, recomputando `satisfaction_ratable` fresco a cada vez (não é patch local). Isso evita o problema do Safari da tentativa Vue (lá era cache-first + subscription que, ao cair em aba background, deixava cache velho); aqui há re-fetch via REST + re-fetch no `ws:login` (reconexão) + pull de 30 min de fallback.
 
 ## Componentes
 
@@ -61,17 +61,18 @@ Gatilho **no carregamento via REST** (o flag vem no payload) — **não depende 
 4. **Modal** `app/assets/javascripts/app/controllers/ticket_zoom/csat_modal.coffee` (estende `App.ControllerModal`):
    - `content()` → `App.view('ticket_zoom/csat_modal')(...)`.
    - `buttonSubmit: 'Submit'`, `buttonCancel: 'Not now'`.
-   - `onSubmit`: lê score (obrigatório) + comentário; `App.Ajax` `POST /api/v1/csat/ratings`; em sucesso fecha; em erro mostra alerta no modal.
-   - `onCancel`/dismiss: `App.LocalStorage.set('csat_dismissed_ticket_' + ticket_id, true)`.
+   - `onSubmit`: lê score (obrigatório) + comentário; `App.Ajax` `POST /api/v1/csat/ratings`; em **sucesso** fecha + notificação rápida de agradecimento (`App.Event.trigger('notify', ...)` / padrão do app); em **erro** mostra alerta no próprio modal (mantém aberto).
+   - **Fechamento (importante — interage com o gatilho ao-vivo B):** backdrop **estático** (clicar fora não fecha → evita dispensa acidental). **Todo** fechar-sem-enviar (X, Escape, "Agora não") grava `App.LocalStorage.set('csat_dismissed_ticket_' + ticket_id, true)`, para que atualizações ao vivo do ticket **não** reabram o popup depois de fechado. "Enviar" não precisa do flag (após avaliar, `satisfaction_ratable` vira false).
 
 5. **Template** `app/assets/javascripts/app/views/ticket_zoom/csat_modal.jst.eco`:
    - Widget de 1–5 estrelas (SVG/`@Icon('star')` **Safari-safe** — sem `url(#id)` dentro de `<symbol>/<use>`; fill inline).
    - `textarea` de comentário exibida conforme `App.Config.get('csat_comment')` (`off` esconde; `required` torna obrigatório).
    - Strings via `@T(...)`.
 
-6. **Gatilho** em `app/assets/javascripts/app/controllers/ticket_zoom.coffee`:
-   - Após o ticket carregar (evento `ui::ticket::all::loaded` / pós-render), checar: `@ticket.currentView() == 'customer'` **e** `@ticket.customer_id == App.User.current().id` **e** `satisfaction_ratable` (do payload) **e** `!App.LocalStorage.get('csat_dismissed_ticket_' + @ticket_id)` → instanciar `App.CsatModal`.
-   - `satisfaction_ratable` lido do raw do ticket carregado.
+6. **Gatilho** (abertura **e** ao vivo) ligado ao evento `ui::ticket::all::loaded` do `ticket_zoom.coffee`:
+   - Esse evento roda no `load()`, que é chamado na **abertura** e também em **cada atualização ao vivo** (push `Ticket:update` → `fetchMayBe → fetch()` = GET REST `?all=true` novo → `satisfaction_ratable` recomputado).
+   - Ao disparar, checar: `currentView() == 'customer'` **e** `customer_id == App.User.current().id` **e** `satisfaction_ratable` (do payload fresco) **e** `!App.LocalStorage.get('csat_dismissed_ticket_' + ticket_id)` → instanciar `App.CsatModal`. Escopar pelo `ticket_id` do evento (evento é global, pode haver várias abas).
+   - Resultado: se o Atendente finaliza com o Cliente olhando, o popup abre na hora (via re-fetch REST); senão, abre quando o Cliente abrir o ticket finalizado.
 
 7. **SCSS** mínimo em `app/assets/stylesheets/zammad.scss` (`.csat-modal` estrelas/hover; dark mode via `@include dark`).
 
@@ -100,7 +101,7 @@ Gatilho **no carregamento via REST** (o flag vem no payload) — **não depende 
 
 ## Riscos / decisões
 
-- **Gatilho on-load (não subscription):** simples e robusto em todos os navegadores; se o agente fechar o ticket com o cliente já olhando, o popup aparece no próximo carregamento/refresh (aceitável; o app legacy também recebe updates de ticket e pode re-checar).
+- **Gatilho abertura + ao vivo (opção B, escolhida):** funciona ao vivo porque o legacy re-busca via REST a cada `Ticket:update` (`fetchMayBe → fetch`), recomputando o flag — não é cache-first como no Vue, então não tem o problema de aba background do Safari. Resiliência extra: re-fetch no `ws:login` + pull de 30 min.
 - **Safari:** estrelas sem `url(#id)` em symbols (lição do `NEWBYTE_WORKFLOW.md`).
 - **`filter_unauthorized_attributes`:** confirmar a assinatura/local exatos em `Ticket::Assets` na implementação (TDD com a spec de payload prova o hook).
 
