@@ -21962,6 +21962,34 @@
               "deprecationReason": null
             },
             {
+              "name": "satisfaction",
+              "description": "The customer satisfaction rating, if visible to the current user",
+              "args": [],
+              "type": {
+                "kind": "OBJECT",
+                "name": "TicketSatisfactionRating",
+                "ofType": null
+              },
+              "isDeprecated": false,
+              "deprecationReason": null
+            },
+            {
+              "name": "satisfactionRatable",
+              "description": "Whether the current user (customer) can submit a rating now",
+              "args": [],
+              "type": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": {
+                  "kind": "SCALAR",
+                  "name": "Boolean",
+                  "ofType": null
+                }
+              },
+              "isDeprecated": false,
+              "deprecationReason": null
+            },
+            {
               "name": "sharedDraftZoomId",
               "description": "The Shared draft ID if the ticket has a shared draft.",
               "args": [],
