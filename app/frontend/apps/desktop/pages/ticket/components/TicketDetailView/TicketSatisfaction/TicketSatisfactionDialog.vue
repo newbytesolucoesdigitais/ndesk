@@ -14,7 +14,7 @@ import { closeDialog } from '#desktop/components/CommonDialog/useDialog.ts'
 
 interface Props {
   name: string
-  onSubmit?: (data: { score: number; comment?: string }) => void
+  onSubmit?: (data: { score: number; comment?: string }) => void | Promise<void>
   onDismiss?: () => void
 }
 
@@ -71,13 +71,17 @@ const close = () => {
   return closeDialog(props.name, true)
 }
 
-const submit = (data: { score: string; comment?: string }) => {
-  resolved.value = true
-
-  props.onSubmit?.({
+// Await the (async) submit handler before closing so the dialog stays open
+// until the mutation resolves. `MutationHandler.send` rejects on failure, so a
+// rejected submit skips the close below — the survey stays open and in context
+// for a retry, and `resolved` is only set on success (mirrors FeedbackDialog).
+const submit = async (data: { score: string; comment?: string }) => {
+  await props.onSubmit?.({
     score: Number(data.score),
     comment: data.comment || undefined,
   })
+
+  resolved.value = true
 
   return closeDialog(props.name, true)
 }
