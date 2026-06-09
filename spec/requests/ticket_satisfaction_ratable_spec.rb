@@ -1,7 +1,8 @@
-# spec/requests/ticket_satisfaction_ratable_spec.rb
+# Copyright (C) 2012-2026 Zammad Foundation, https://zammad-foundation.org/
+
 require 'rails_helper'
 
-RSpec.describe 'Ticket payload satisfaction_ratable', type: :request do
+RSpec.describe 'Ticket payload satisfaction_ratable', :aggregate_failures, type: :request do
   let(:group)    { create(:group) }
   let(:agent)    { create(:agent, groups: [group]) }
   let(:customer) { create(:customer) }

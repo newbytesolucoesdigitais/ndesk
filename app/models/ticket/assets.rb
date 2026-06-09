@@ -59,14 +59,14 @@ returns
   end
 
   def filter_unauthorized_attributes(attributes)
-    attributes = super
+    filtered_attributes = super
 
     user_id = UserInfo.current_user_id
     if user_id.present? && Setting.get('csat_integration')
       user = User.lookup(id: user_id)
-      attributes['satisfaction_ratable'] = user.present? && Ticket::SatisfactionRating.ratable?(ticket: self, user:)
+      filtered_attributes['satisfaction_ratable'] = user.present? && Ticket::SatisfactionRating.ratable?(ticket: self, user:)
     end
 
-    attributes
+    filtered_attributes
   end
 end
