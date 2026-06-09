@@ -16,6 +16,15 @@ class Ticket::SatisfactionRating < ApplicationModel
 
   before_create :snapshot_agent_and_group
 
+  # True if `user` may rate `ticket` right now (CSAT on, user is the ticket
+  # customer, ticket finalized, no prior rating). Single source of truth: wraps
+  # the policy so this boolean and the create authorization never drift.
+  def self.ratable?(ticket:, user:)
+    return false if user.blank?
+
+    Ticket::SatisfactionRatingPolicy.new(user, new(ticket:, customer: user)).create? == true
+  end
+
   private
 
   def snapshot_agent_and_group

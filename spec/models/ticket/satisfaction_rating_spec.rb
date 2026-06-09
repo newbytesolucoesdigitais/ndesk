@@ -85,4 +85,41 @@ RSpec.describe Ticket::SatisfactionRating, type: :model do
       end
     end
   end
+
+  describe '.ratable?' do
+    let(:group)    { create(:group) }
+    let(:agent)    { create(:agent, groups: [group]) }
+    let(:customer) { create(:customer) }
+    let(:state)    { Ticket::State.find_by(name: 'closed') }
+    let(:ticket)   { create(:ticket, group:, customer:, owner: agent, state:) }
+
+    before { Setting.set('csat_integration', true) }
+
+    it 'is true for the customer of a closed, unrated ticket' do
+      expect(described_class.ratable?(ticket:, user: customer)).to be(true)
+    end
+
+    it 'is false when CSAT is disabled' do
+      Setting.set('csat_integration', false)
+      expect(described_class.ratable?(ticket:, user: customer)).to be(false)
+    end
+
+    it 'is false for a non-customer' do
+      expect(described_class.ratable?(ticket:, user: agent)).to be(false)
+    end
+
+    it 'is false when the ticket is not finalized' do
+      ticket.update!(state: Ticket::State.find_by(name: 'open'))
+      expect(described_class.ratable?(ticket:, user: customer)).to be(false)
+    end
+
+    it 'is false when already rated' do
+      create(:ticket_satisfaction_rating, ticket:, customer:)
+      expect(described_class.ratable?(ticket:, user: customer)).to be(false)
+    end
+
+    it 'is false when user is nil' do
+      expect(described_class.ratable?(ticket:, user: nil)).to be(false)
+    end
+  end
 end
