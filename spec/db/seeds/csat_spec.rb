@@ -15,7 +15,7 @@ RSpec.describe 'CSAT seeds', :aggregate_failures do # rubocop:disable RSpec/Desc
   end
 
   it 'seeds CSAT settings with the expected defaults' do
-    expect(Setting.get('csat_integration')).to be(false)
+    expect(Setting.get('csat_integration')).to be(true)
     expect(Setting.get('csat_comment')).to eq('optional')
     expect(Setting.get('csat_closed_state_types')).to eq(['closed'])
   end

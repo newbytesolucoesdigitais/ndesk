@@ -6192,7 +6192,7 @@ Setting.create_if_not_exists(
       },
     ],
   },
-  state:       false,
+  state:       true,
   preferences: {
     permission: ['admin.csat'],
   },

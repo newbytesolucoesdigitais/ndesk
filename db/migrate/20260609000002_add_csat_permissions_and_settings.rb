@@ -30,7 +30,7 @@ class AddCsatPermissionsAndSettings < ActiveRecord::Migration[8.0]
       description: 'Defines if customers are asked to rate resolved tickets.',
       options:     { form: [{ display: '', null: true, name: 'csat_integration', tag: 'boolean',
                               options: { true => 'yes', false => 'no' } }] },
-      state:       false,
+      state:       true,
       preferences: { permission: ['admin.csat'] },
       frontend:    true
     )
