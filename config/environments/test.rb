@@ -49,6 +49,14 @@ Rails.application.configure do
   # Print deprecation notices to the stderr.
   config.active_support.deprecation = :stderr
 
+  # db/schema.rb é git-ignored (artefato gerado, não versionado).
+  # O Rails 8.1 passou a despejar as colunas em ordem alfabética, e o db:migrate do
+  # zammad:db:reset carregaria esse dump em vez de rodar as migrations.
+  # Sem o dump, o banco de teste é construído por migrations como o de produção, e o
+  # comportamento que depende da ordem das colunas (p. ex. o cabeçalho de
+  # CanCsvImport.csv_example) confere com produção.
+  config.active_record.dump_schema_after_migration = false
+
   # Enable autoload
   config.dependency_loading = true
 
