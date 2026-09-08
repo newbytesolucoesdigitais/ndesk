@@ -851,9 +851,23 @@ export RAILS_ENV=test TZ=Europe/London Z_LOCALES="en-us:de-de" REDIS_URL=redis:/
 find spec -name '*_spec.rb' -not -path 'spec/system/*' -not -path 'spec/db/migrate/*' | sort > "$S/shards-1-4.txt"
 find spec/db/migrate -name '*_spec.rb' | sort > "$S/shard-5.txt"
 echo "shards 1-4: $(wc -l < "$S/shards-1-4.txt") arquivos · shard 5: $(wc -l < "$S/shard-5.txt")"
+# Falhas conhecidas SÓ no macOS (R9): lshw/Linux, virada de dia em UTC, tzdata. O CI é a autoridade.
+printf '%s\n' \
+  './spec/models/system_report/plugin/hardware_spec.rb' \
+  './spec/models/object_manager/attribute/set_defaults_spec.rb' \
+  './spec/models/calendar_spec.rb' > "$S/known-env-failures.txt"
+set +e
 bundle exec rspec --tag '~searchindex' --tag '~integration' --tag '~required_envs' \
   $(tr '\n' ' ' < "$S/shards-1-4.txt") > "$S/rspec-1-4.log" 2>&1
+st14=$?
+set -e
 tail -3 "$S/rspec-1-4.log"
+grep -E '^rspec \./spec' "$S/rspec-1-4.log" | sed -E 's/^rspec (\S+):[0-9]+.*/\1/' | sort -u > "$S/rspec-1-4-failed-files.txt"
+if [ "$st14" -ne 0 ]; then
+  extra=$(comm -23 "$S/rspec-1-4-failed-files.txt" <(sort -u "$S/known-env-failures.txt"))
+  [ -z "$extra" ] || { echo "FALHAS FORA DA LISTA CONHECIDA:"; echo "$extra"; exit 1; }
+  echo "só falhas de ambiente conhecidas (R9): $(wc -l < "$S/rspec-1-4-failed-files.txt") arquivo(s)"
+fi
 bundle exec rspec $(tr '\n' ' ' < "$S/shard-5.txt") > "$S/rspec-5.log" 2>&1
 tail -3 "$S/rspec-5.log"
 bundle exec rake zammad:db:reset > "$S/db-reset.log" 2>&1
@@ -864,8 +878,10 @@ echo "PRE-CHECK BACKEND OK"
 GATE
 ```
 
-Esperado: `PRE-CHECK BACKEND OK` (com `set -e`, qualquer status diferente de 0 interrompe antes). Os
-jobs Lint e Frontend (Vitest) do CI não dependem desta mudança e ficam só remotos.
+Esperado: `PRE-CHECK BACKEND OK`. Com `set -e`, qualquer status diferente de 0 interrompe antes, exceto o
+RSpec dos shards 1–4, cujas falhas precisam estar todas na lista de ambiente conhecida (R9) — qualquer
+arquivo fora dela para o gate. Os jobs Lint e Frontend (Vitest) do CI não dependem desta mudança e ficam
+só remotos.
 
 - [ ] **Step 2: Corrigir falhas como commits novos e repetir os gates**
 
