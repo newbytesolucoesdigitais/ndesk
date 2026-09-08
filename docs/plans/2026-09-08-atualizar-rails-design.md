@@ -1,17 +1,17 @@
 # Spec — Atualizar Rails 8.0.4 → 8.1.3.1 (NDESK-45)
 
 - **Task:** [NDESK-45](https://plane.byte.newbyte.net.br/engenharia/browse/NDESK-45/) · `[NDesk] Atualizar Rails`
-- **Data:** 2026-09-08 · **Fase:** Planning
+- **Data:** 2026-09-08 · **Fase:** Planning · **Revisão:** v2, após grill com modelo OpenAI
 - **Branch:** `chore/rails-8.1-upgrade` (base `newbyte-stable` @ `43e237b860`, tag `nb.v1.5.1`)
-- **Status:** aprovado em conversa; aguardando grill e aprovação da versão escrita
+- **Status:** aguardando aprovação da versão escrita
 
 ## 1. Problema
 
-O job **Security Scan** do CI (`.github/workflows/ci-test.yml`, passo Brakeman) falha com exit code 3
+O check **Security Scan** do CI (`.github/workflows/ci-test.yml`, passo Brakeman) falha com exit code 3
 desde 2026-09-04. O Brakeman 8.0.2 (versão travada no `Gemfile.lock`) roda o check `EOLRails`, cuja
 tabela interna diz que a série Rails 8.0 acaba em **2026-10-07**. O check emite warning fraco a 60 dias
-do fim, médio a 30 dias e forte ("ended on") depois da data; qualquer warning faz o Brakeman sair com 3,
-e o job fica vermelho. Enquanto isso, toda PR para `newbyte-stable` nasce com o check vermelho.
+do fim, médio a 30 dias e forte ("ended on") depois da data; qualquer warning faz o Brakeman sair com 3.
+Enquanto isso, toda PR para `newbyte-stable` nasce com o check vermelho.
 
 O NDesk está em Rails 8.0.4, Ruby 3.4.8, `config.load_defaults 8.0`, base Zammad 7.0.0
 (merge-base com `upstream/develop` em 2026-02-09).
@@ -23,8 +23,8 @@ O NDesk está em Rails 8.0.4, Ruby 3.4.8, `config.load_defaults 8.0`, base Zamma
 | Fonte | Série 8.0 (8.0.4 … 8.0.5.1) | Série 8.1 |
 |---|---|---|
 | [Política oficial do Rails](https://rubyonrails.org/maintenance) | bugfix acabou 2026-05-07; segurança até **2026-11-07** | bugfix até 2026-10-10; segurança até **2027-10-10** |
-| Brakeman 8.0.2 (`check_eol_rails.rb` na tag v8.0.2) | **2026-10-07** (tabela fixa, um mês antes do oficial) | sem entrada → nunca avisa |
-| Brakeman 8.0.6 (última publicada; tag v8.0.6) | 2026-11-07 | 2027-10-10 |
+| Brakeman 8.0.2 (`check_eol_rails.rb`, tag v8.0.2) | **2026-10-07** (tabela fixa, um mês antes do oficial) | sem entrada → nunca avisa |
+| Brakeman 8.0.6 (última publicada, tag v8.0.6) | 2026-11-07 | 2027-10-10 |
 
 Consequências:
 
@@ -32,7 +32,6 @@ Consequências:
   menos 60 dias cai em 2026-09-08 (hoje), e o warning voltaria de imediato.
 - Rails 8.1 resolve com qualquer um dos dois Brakemans; com o 8.0.6 o próximo aviso fraco seria
   por volta de 2027-08-11.
-- Suporte é por série, não por patch: 8.0.5 tem a mesma data que 8.0.4.
 
 ### 2.2 Versões disponíveis (RubyGems)
 
@@ -48,7 +47,9 @@ Consequências:
 menciona Rails 8.1 (busca via API do GitHub). O NDesk será pioneiro; não há trabalho upstream para
 aproveitar, e o upstream vai esbarrar no mesmo warning do Brakeman nesta semana.
 
-### 2.4 Compatibilidade das gems com Rails 8.1 (gemspecs via API do RubyGems)
+### 2.4 Compatibilidade das gems e mudanças esperadas no lock
+
+Constraints declaradas (gemspecs via API do RubyGems):
 
 | Gem (versão travada) | Constraint declarada | Aceita 8.1? |
 |---|---|---|
@@ -66,156 +67,240 @@ aproveitar, e o upstream vai esbarrar no mesmo warning do Brakeman nesta semana.
 | rack-attack 6.8.0, rubocop-rails 2.34.3 | `rack < 4` / `rack >= 1.1` | sim |
 | rack-session 1.0.2, rackup 1.0.1, rack-protection 3.2.0 | `rack < 3` / `rack ~> 2.2` | pinam rack 2.x; sem conflito com actionpack 8.1 |
 
-Nenhuma gem do lock limita Rails, railties, actionpack ou activerecord abaixo de 8.1. A expectativa
-é que `bundle update rails --conservative` só troque Rails e seus componentes.
+Nenhuma gem do lock limita Rails, railties, actionpack ou activerecord abaixo de 8.1. O grafo do
+Rails 8.1.3.1, porém, **não troca só Rails e Brakeman**: `actiontext` 8.1 passa a depender de
+`action_text-trix (~> 2.1.15)` (gem nova no lock) e `activesupport` 8.1 deixa de depender de
+`benchmark` (sai do lock se nenhuma outra gem a exigir) e passa a declarar `json` (versão atual
+pode ficar). A allowlist de mudanças do lock está em §4.1.
+
+**Rack 2.2.x é invariante técnica, não preferência:** `lib/core_ext/rack/utils.rb` reabre
+`Rack::Utils.add_cookie_to_header`, removido no Rack 3 (com Rack 3.2.6 o arquivo levanta
+`NameError`). O actionpack 8.1 aceita `rack >= 2.2.4`, e `rack-session`, `rackup`, `rack-protection`
+e `sprockets` pinam `< 3`.
 
 ### 2.5 Mudanças do Rails 8.1 relevantes para o NDesk
 
 Fontes: [guia de upgrade](https://guides.rubyonrails.org/upgrading_ruby_on_rails.html),
 [release notes 8.1](https://guides.rubyonrails.org/8_1_release_notes.html), CHANGELOGs do branch
-`8-1-stable` e o template `new_framework_defaults_8_1.rb.tt` do railties.
+`8-1-stable` e `railties/lib/rails/application/configuration.rb` da tag v8.1.3.1 (bloco `when "8.1"`).
 
-#### Novos defaults (só ativam com `load_defaults 8.1`)
+#### Os sete ajustes de `config.load_defaults 8.1`
 
-| Config | Novo valor | Impacto no NDesk | Verificação |
+| Config | 8.0 → 8.1 | Impacto no NDesk | Oráculo |
 |---|---|---|---|
-| `action_controller.escape_json_responses` | `false` | `render json` deixa de escapar `<>&` e U+2028/2029. 458 chamadas em `app/`, consumidas por XHR da UI legada e pelas UIs Vue; o escape não era fronteira de segurança | artigo/ticket com `<>&` no corpo e no título renderiza igual no zoom e na busca |
-| `active_support.escape_js_separators_in_json` | `false` | idem, para U+2028/2029 | coberto pelo item acima |
-| `active_record.raise_on_missing_required_finder_order_columns` | `true` | `#first`/`#last` sem `order` em relação cujo model não tem PK, `implicit_order_column` nem `query_constraints` levanta `MissingRequiredOrderError`. 262 usos de `.first` em `app/lib`, todos em models com `id`. 12 tabelas de junção sem PK (`groups_users`, `roles_users`, …) não têm model | suíte RSpec + Minitest; grep de queries diretas nas 12 tabelas |
-| `action_controller.action_on_path_relative_redirect` | `:raise` | `redirect_to "x"` sem `/` inicial levanta `UnsafeRedirectError`. Grep não achou literal relativo; falta auditar redirects dinâmicos (OAuth, sessão, `return_to`) | auditoria de todos os `redirect_to` + request specs + smoke de login/OAuth no preview |
-| `action_view.render_tracker` | `:ruby` | rastreio de dependências de templates para cache de fragmento; poucas views ERB | suíte; smoke das páginas ERB (login, erro) |
-| `action_view.remove_hidden_field_autocomplete` | `true` | `form_tag`/`button_to` sem `autocomplete="off"` nos hidden; UI legada é JS | suíte; smoke |
+| `config.yjit` | `true` → `!Rails.env.local?` | YJIT desligado em development/test, ligado em production. `config/initializers/yjit.rb` só força `false` com `ZAMMAD_DISABLE_YJIT`; não neutraliza | `rails runner` em test e production imprimindo `Rails.application.config.yjit` |
+| `action_controller.escape_json_responses` | `true` → `false` | `render json` deixa de escapar `<>&` e U+2028/2029. ~460 chamadas em `app/`, consumidas por XHR das UIs (clássica e Vue), que fazem `JSON.parse`. Nenhuma view ERB embute JSON (`to_json`/`json_escape` ausentes em `app/views`), então não há consumidor que dependa do escape | request spec afirmando que o **corpo HTTP bruto** contém `<`, `>`, `&` literais e U+2028/U+2029 sem escape; grep de embedding em ERB registrado como N/A |
+| `active_support.escape_js_separators_in_json` | `true` → `false` | afeta o encoder global (`ActiveSupport::JSON.encode`): além dos controllers, WebSocket server (`lib/websocket_server.rb`) e stores de sessão (`lib/sessions/store/{file,redis}.rb`), todos com `JSON.parse` do outro lado | teste unitário de `ActiveSupport::JSON.encode` com U+2028/U+2029; um teste de round-trip do store de sessão |
+| `active_record.raise_on_missing_required_finder_order_columns` | `false` → `true` | `first`/`last`/finders posicionais sem `order` em model sem `primary_key`, `implicit_order_column` ou `query_constraints` levantam `MissingRequiredOrderError`. `take`/`find_by` não são afetados. 12 tabelas `id: false`: `groups_users` e `roles_groups` têm models (`UserGroup`, `RoleGroup`) com chave composta `ref_key, :group_id, :access`; as outras 10 são HABTM sem model. 377 chamadas de `.first/.last/.take` em `app/lib` revisadas: zero receivers sem coluna de ordem | RSpec + Minitest no CI; reflexão contra banco real na execução |
+| `action_controller.action_on_path_relative_redirect` | `:log` → `:raise` | `redirect_to` com destino sem `/` inicial e sem esquema levanta `PathRelativeRedirectError`. 11 chamadas em `app/` (0 em `lib/`): 2 URL absoluta, 5 path com `/`, 2 helper de rota, 2 dinâmicas em `external_credentials_controller.rb` (linhas 41 e 47) cujo valor vem do backend OAuth e é URL absoluta nos backends first-party. `allow_other_host` **não** trata isso (é proteção de host externo, avaliada depois) | request spec por backend garantindo URL com esquema ou path com `/`; smoke de login/redirect pós-login no preview |
+| `action_view.render_tracker` | `:regex` → `:ruby` | rastreio de dependências de templates para cache de fragmento; poucas views ERB | suíte; smoke das páginas ERB (login, KB pública) |
+| `action_view.remove_hidden_field_autocomplete` | `false` → `true` | `form_tag`/`button_to` sem `autocomplete="off"` nos hidden; UI clássica é JS | suíte; N/A com evidência |
 
 #### Mudanças que valem independentemente dos defaults
 
-| Mudança | Impacto | Verificação |
+| Mudança | Impacto (auditado) | Verificação |
 |---|---|---|
 | Query string: `;` deixa de separar parâmetros; `[foo]=bar` vira chave `"[foo]"` | UIs não usam `;`; risco baixo | request specs |
-| Rota para controller inexistente responde 500 em vez de 404 | 14 request specs afirmam 404, em rotas reais | suíte |
-| `head` depois de `render` levanta `DoubleRenderError` | 2 controllers com `head` a auditar | suíte + leitura |
+| Rota para controller inexistente responde 500 em vez de 404 | 26 `have_http_status(:not_found)` em `spec/requests`, todos de rotas reais (não reproduzido caso de controller inexistente) | suíte |
+| `head` depois de `render` levanta `DoubleRenderError` | 2 chamadas de `head` em `app/`: `tickets_controller.rb:285` (após `destroy!`, sem render anterior) e `ticket_articles_controller.rb:206` (branch exclusivo, renders anteriores retornam). Ambas cobertas por request specs | nenhuma correção |
 | `HEAD` em `PublicExceptions`/`DebugExceptions` volta corpo vazio | nenhum | suíte |
-| `CurrentAttributes` zerado ao fim de cada request | Zammad já chama `clear_all` em 3 pontos e usa 2 classes `CurrentAttributes` | suíte |
+| `CurrentAttributes` zerado ao fim de cada request | Zammad tem 2 classes `CurrentAttributes` e 4 `clear_all` manuais (has_cache, sessions/client, sessions/event, job_executor) | suíte |
 | `schema.rb` ordenado alfabeticamente | `db/schema.rb` é ignorado pelo git | nenhuma |
-| `database.yml`: `pool` renomeado para `max_connections` (compatível) | manter `pool: 50` como o upstream | log de deprecação; se houver, vem de `/gems/` e é permitido |
-| Removidos: `Benchmark.ms`, `rails/console/methods`, `Time#since(Time)`, soma `Time + TimeWithZone`, `to_time` sem preservar timezone | grep: 0 usos | — |
-| Deprecados: `String#mb_chars`, `ActiveSupport::Multibyte::Chars`, `ActiveSupport::Configurable`, `to_time_preserves_timezone`, `signed_id_verifier_secret`, `class_name` em `belongs_to` polimórfico, `insert_all`/`upsert_all` com registros não persistidos, `WITH`/`DISTINCT` em `update_all` | grep: 0 usos | — |
+| `database.yml`: `pool` → `max_connections` | Rails 8.1.3.1 lê `pool:` silenciosamente como fallback de `max_connections` (`HashConfig`); só o método Ruby `HashConfig#pool` é deprecado, e o app não o chama. Manter `pool: 50` | nenhuma |
+| `lock!` recusa lock pessimista em role read-only | `config/initializers/active_record_lock_issue_3664.rb` reabre `Pessimistic#lock!(lock = true)` via alias e delega a `orig_lock!` | diff de assinatura na execução (§2.6) |
+| Removido `to_time` sem preservar timezone | 3 usos de `to_time` (ics_file/parse, handles_overview_caching, base_cached_connection); `load_defaults 8.0` já preserva timezone (`to_time_preserves_timezone = :zone`), sem mudança de comportamento | suíte |
+| Removidos: `Benchmark.ms`, `rails/console/methods`, `Time#since(Time)`, `Time + TimeWithZone`, rotas com múltiplos paths, adapter Sucker Punch, Active Storage `:azure`, `:retries` SQLite, colunas unsigned MySQL | grep: 0 usos | auditado, N/A |
+| Erro (não mais deprecação): `class_name:` em `belongs_to` polimórfico | grep: 0 usos | auditado, N/A |
+| Deprecados: `String#mb_chars`, `ActiveSupport::Multibyte::Chars`, `ActiveSupport::Configurable`, `to_time_preserves_timezone`, `signed_id_verifier_secret`, `insert_all`/`upsert_all` com registros não persistidos, `WITH`/`DISTINCT` em `update_all` | grep: 0 usos | auditado, N/A |
 | `app/jobs/user_device_log_job.rb`: `self.enqueue_after_transaction_commit = false` | forma booleana continua válida em 8.1 (só os modos simbólicos e a config global foram removidos) | suíte |
-| YJIT não é mais ligado em dev/test por padrão | NDesk tem `config/initializers/yjit.rb` próprio | nenhuma |
 
-### 2.6 Pontos de acoplamento com internals (auditar contra a fonte 8.1.3.1)
+### 2.6 Pontos de acoplamento com internals
 
-`lib/core_ext` reabre:
+Comparação de fonte 8.0.4 × 8.1.3.1 (feita no grill, sem boot): **nenhum patch de `lib/core_ext`
+muda de assinatura ou de predicado no 8.1.3.1.** A execução repete a comparação com as gems
+instaladas e cobre também os reopenings fora de `lib/core_ext`.
 
-- `ActionDispatch::Cookies::CookieJar#write_cookie?`
-- `ActiveRecord::Calculations#pluck_as_hash` (+ `Enumerable`)
-- `ActiveRecord::ConnectionAdapters::PostgreSQL::SchemaStatements#quoted_columns_for_index`
-- `ActiveRecord::Store::IndifferentCoder.as_indifferent_hash`
-- `ActiveJob::QueueAdapters::DelayedJobAdapter::JobWrapper#max_attempts`
-- `ActiveSupport::Callbacks::ClassMethods#without_callback`
-- `ActiveSupport::TaggedLogging::Formatter#call`
-- `Rack::Session::Abstract::Persisted#security_matches?` e `Rack::Utils.add_cookie_to_header` (Rack fica em 2.2, sem mudança)
+| Local | Método reaberto | Nota |
+|---|---|---|
+| `lib/core_ext/action_dispatch/middleware/cookies.rb` | `ActionDispatch::Cookies::CookieJar#write_cookie?` | força `Secure`; torna público método privado upstream |
+| `lib/core_ext/rack/session/abstract/id.rb` | `Rack::Session::Abstract::Persisted#security_matches?` | força `Secure`; Rack 2.2 |
+| `lib/core_ext/rack/utils.rb` | `Rack::Utils.add_cookie_to_header` | força `Secure`; removido no Rack 3 |
+| `lib/core_ext/active_record/calculations/pluck_as_hash.rb` | `pluck_as_hash` (AR + Enumerable) | método local; usa `pluck`/`arel_columns` |
+| `lib/core_ext/active_record/connection_adapters/postgresql/schema_statements.rb` | `quoted_columns_for_index` | assinatura mantida |
+| `lib/core_ext/active_record/store/indifferent_coder.rb` | `IndifferentCoder.as_indifferent_hash` | assinatura mantida |
+| `lib/core_ext/activejob/lib/active_job/queue_adapters/delayed_job_adapter.rb` | `JobWrapper#max_attempts` | integração com Delayed Job |
+| `lib/core_ext/activesupport/lib/active_support/callbacks.rb` | `ClassMethods#without_callback` | sem colisão |
+| `lib/core_ext/activesupport/lib/active_support/tagged_logging/formatter.rb` | `Formatter#call` | assinatura mantida |
+| `config/initializers/active_record_lock_issue_3664.rb` | `Locking::Pessimistic#lock!` | 8.1 mudou o corpo de `lock!` |
+| `config/initializers/active_record_as_batches.rb` | batches de AR | verificar na execução |
+| `config/initializers/activemodel_error.rb` | `ActiveModel::Error` | verificar na execução |
+| `config/initializers/delayed_jobs_ensure_active_job_lock_removal.rb`, `delayed_jobs_timeout_per_job.rb` | Delayed Job / AJ | verificar na execução |
+| `lib/active_support/cache/zammad_file_store.rb` | `ActiveSupport::Cache::FileStore` | verificar na execução |
 
-Mais 43 initializers em `config/initializers`, dos quais os que tocam AR/AJ/AC
-(`active_record_*.rb`, `delayed_jobs_*.rb`, `zzz_action_cable_preferences.rb`, `session_store.rb`,
-`cookies_serializer.rb`, `wrap_parameters.rb`) são lidos na execução.
+Os três patches de cookie `Secure` não têm teste contratual próprio; a execução adiciona um request
+spec que afirma o atributo `Secure` no `Set-Cookie` da sessão.
 
-### 2.7 Suíte de testes
+### 2.7 Suíte de testes e CI
 
-`spec/support/deprecation_toolkit.rb`: qualquer deprecação cujo topo da stack esteja fora de `/gems/`
-ou `/ruby/` **falha o exemplo**. Deprecação vinda de gem é permitida. Logo, deprecações do 8.1
-disparadas por código do app quebram o RSpec e precisam ser corrigidas na origem.
+- `spec/support/deprecation_toolkit.rb`: deprecação cujo primeiro frame absoluto está fora de
+  `/gems/` ou `/ruby/` **falha o exemplo**. Deprecação vinda de gem é permitida. Deprecações do 8.1
+  disparadas por código do app quebram o RSpec e são corrigidas na origem.
+- `ci-test.yml` tem 12 jobs: Lint (1), Frontend Tests/Vitest (4), Security Scan (1), RSpec (5),
+  Minitest (1). O RSpec do CI **exclui** `spec/system`, `searchindex`, `integration` e
+  `required_envs`. Não há gate de boot nem `zeitwerk:check` no CI. Não há QUnit/Cypress nesse
+  workflow.
+- Preparação local de banco e assets segue
+  `doc/developer_manual/cookbook/how-to-test-with-rspec-and-capybara.md`.
 
 ## 3. Decisões
 
 | # | Decisão | Motivo |
 |---|---|---|
-| D1 | Versão alvo **Rails 8.1.3.1**, `gem 'rails', '~> 8.1.0'` | última publicada; única série que silencia o EOLRails nos dois Brakemans; suporte de segurança até 2027-10-10 |
-| D2 | **Adotar `config.load_defaults 8.1` nesta task**, sem arquivo `new_framework_defaults_8_1.rb` | decisão do usuário; estilo do upstream (sem arquivo de defaults); cada default verificado explicitamente (§2.5) |
-| D3 | Subir **Brakeman para 8.0.6** junto | gem só de desenvolvimento; com 8.0.2 o check EOLRails ficaria mudo para a série 8.1; alinha com o upstream |
-| D4 | **Uma PR, dois commits**: (1) bump Rails + Brakeman + correções que a suíte exigir; (2) `load_defaults 8.1` + ajustes dos defaults | um preview e um QA; o commit 2 pode ser revertido sozinho |
-| D5 | Ruby fica em 3.4.8; rack fica em 2.2.x; nenhuma outra gem é atualizada de propósito | fora do escopo; actionpack 8.1 aceita rack 2.2.4+ |
-| D6 | `database.yml` mantém `pool: 50` | compatível; igual ao upstream; evita divergência |
+| D1 | Versão alvo **Rails 8.1.3.1**, `gem 'rails', '~> 8.1.0'` | última publicada; única série que silencia o EOLRails nos dois Brakemans; segurança até 2027-10-10 |
+| D2 | **Adotar `config.load_defaults 8.1` nesta task**, sem `new_framework_defaults_8_1.rb` | decisão do usuário; estilo do upstream; os sete ajustes verificados um a um (§2.5) |
+| D3 | Subir **Brakeman para 8.0.6** junto | gem só de desenvolvimento; com 8.0.2 o EOLRails ficaria mudo para a série 8.1; alinha com o upstream |
+| D4 | **Uma PR** com os commits de planejamento (spec, plano) mais **dois commits de implementação**: (1) bump Rails + Brakeman + lock + ajustes que mudam só pela troca das gems; (2) `load_defaults 8.1` + ajustes causados pelos sete defaults + seus testes. **Merge sem squash** (prática atual da `newbyte-stable`: merge commits) | um preview e um QA; o commit 2 pode ser revertido sozinho |
+| D5 | Ruby fica em 3.4.8; **rack fica em 2.2.x (invariante)**; mudanças no lock limitadas à allowlist de §4.1 | fora do escopo; patch em `Rack::Utils` incompatível com Rack 3 |
+| D6 | `database.yml` mantém `pool: 50` | Rails 8.1.3.1 lê `pool:` como fallback de `max_connections` sem warning; igual ao upstream |
 | D7 | Deprecações no código do app são corrigidas na origem, nunca adicionadas a `allowed_deprecations` | política já vigente na suíte |
-| D8 | Execução local com `rbenv install 3.4.8` + PostgreSQL 17 e Redis já instalados; CI da PR é a autoridade | Gemfile pina 3.4.8; máquina não tem Docker |
-| D9 | "Staging" = preview de PR `ndesk-pr-{N}.staging-preview.newbyte.net.br` | é o ambiente que existe (usado no QA da PR #23) |
+| D8 | Execução local com `rbenv install 3.4.8` + PostgreSQL 17 e Redis já instalados; gates locais em §4.4; todos os jobs de `ci-test.yml` são o gate remoto | Gemfile pina 3.4.8; máquina não tem Docker |
+| D9 | "Staging" = **preview da PR** `ndesk-pr-{N}.staging-preview.newbyte.net.br` (provisionador externo ao repo; padrão de URL visto no comentário de QA da PR #23 no GitHub) | é o ambiente que existe |
+| D10 | **Preview indisponível bloqueia o release**; a stack local é pré-check, nunca substituto (não tem Elasticsearch, logo não cobre busca) | critério de aceite fixado no briefing |
+| D11 | Sem ADR nem mudança em `CONTEXT.md` | upgrade de plataforma, sem conceito de domínio novo |
 
 ## 4. Design
 
 ### 4.1 Dependências
 
 1. `Gemfile`: `gem 'rails', '~> 8.1.0'`.
-2. `bundle update rails brakeman --conservative` → lock com rails 8.1.3.1 (todos os componentes) e
-   brakeman 8.0.6. Se o bundler exigir bump transitivo, aceitar só o mínimo e listar na PR.
-3. `bundle exec rails zeitwerk:check` e boot da app (`rails runner 'puts Rails.version'`).
+2. `bundle lock --update rails brakeman --conservative --print` (Bundler 2.6.9, o do lock) e comparar
+   com a allowlist antes de gravar. Se o resolver não destravar os componentes, repetir nomeando
+   Rails + os 12 componentes + Brakeman, ainda `--conservative`.
+3. **Allowlist do lock:** Rails e seus 12 componentes `8.0.4 → 8.1.3.1`; `brakeman 8.0.2 → 8.0.6`;
+   `action_text-trix` adicionada; `benchmark` removida; vínculo de `json` declarado (versão mantida se
+   o resolver permitir); `rack` continua `2.2.22`. **Qualquer outra mudança de versão para a
+   execução e reabre o escopo com o usuário.**
+4. Gates: `bundle install`, boot (`rails runner 'puts Rails.version'`), `bundle exec rails
+   zeitwerk:check`, Brakeman exit 0.
 
 ### 4.2 Configuração
 
-- `config/application.rb`: `config.load_defaults 8.1`.
+- `config/application.rb`: `config.load_defaults 8.1` e comentário da linha anterior atualizado
+  (hoje diz "originally generated Rails version").
 - Sem `new_framework_defaults_8_1.rb`. Se algum default precisar ser revertido pontualmente, a
-  exceção entra explícita em `config/application.rb` com comentário e é registrada na spec/PR.
+  exceção entra explícita em `config/application.rb` com comentário e é registrada neste documento e
+  na descrição da PR.
 - `config/database.yml`: sem mudança.
+- Valores efetivos dos sete ajustes conferidos por `rails runner` em `test` e `production`.
 
 ### 4.3 Código
 
-Só o que a suíte, o Brakeman ou a auditoria exigirem. Roteiro de auditoria (antes de rodar a suíte
-inteira):
+Resultados da auditoria (fechados no grill; a execução os repete com as gems instaladas):
 
-1. Diff de cada método reaberto em `lib/core_ext` (§2.6) contra o código do Rails 8.1.3.1 instalado.
-2. `grep -rn "redirect_to" app lib` → classificar cada um: URL absoluta, path com `/`, helper de rota,
-   ou dinâmico. Dinâmicos ganham `allow_other_host`/normalização ou teste que prove o `/` inicial.
-3. Os 2 controllers com `head` após render.
-4. Queries diretas nas 12 tabelas de junção sem PK (`.first`/`.last`/`.take` sobre `Arel`/`select`).
-5. Suíte completa (RSpec + Minitest) local; corrigir falhas; deprecações do app corrigidas na origem.
-6. Brakeman 8.0.6 local: exit 0. Achados novos legítimos são corrigidos; falsos positivos entram em
+1. **Redirects:** 11 `redirect_to` em `app/`, 0 em `lib/`, 1 em `config/initializers/doorkeeper.rb`
+   (`root_path`, seguro). Nenhum quebra com os produtores atuais. Os dinâmicos em
+   `external_credentials_controller.rb` (linhas 41, 47 e 52) dependem do valor: request spec por
+   backend OAuth garantindo URL com esquema ou path com `/`. A linha 47 tem
+   `return redirect_to(channel), allow_other_host: true`, em que `allow_other_host` vira segundo valor
+   do `return` e não chega ao `redirect_to`: corrigir a sintaxe no commit 2, com teste; comportamento
+   para host próprio não muda.
+2. **`head` após render:** nenhuma correção (§2.5).
+3. **Finders sem ordem:** nenhuma correção (§2.5).
+4. **Internals (§2.6):** diff método a método com as gems instaladas; request spec do cookie
+   `Secure`.
+5. Deprecações do app corrigidas na origem (D7).
+6. Brakeman 8.0.6: achados novos legítimos são corrigidos; falsos positivos entram em
    `config/brakeman.ignore` com justificativa no commit.
+7. Comentários que citam a versão do Rails são atualizados no commit correspondente, sem mudar
+   comportamento.
 
-### 4.4 Ambiente
+Fronteira dos commits: o commit 1 contém gems, lock e ajustes que mudam só pela troca das gems
+(§2.5, tabela "independentemente dos defaults", e §2.6); o commit 2 contém `load_defaults 8.1`, os
+ajustes dos sete defaults e seus testes. Commit 1 passa nos gates locais sozinho; commit 2 passa sobre
+o commit 1.
 
-- Local: `rbenv install 3.4.8`, `bundle install`, banco de dev/test no PostgreSQL 17 local, Redis local.
-  Elasticsearch não é necessário para a suíte padrão.
-- CI (`ci-test.yml`): Security Scan (Brakeman), Lint, Minitest, RSpec 1–5, Frontend 1–4.
-- Preview de PR para o smoke test.
+### 4.4 Ambiente e gates
+
+- **Local (obrigatório):** `rbenv install 3.4.8`, `bundle install`, preparação de banco/assets
+  (cookbook), boot, `zeitwerk:check`, Brakeman, specs dos pontos afetados (requests de sessão, OAuth,
+  tickets, artigos, patches de `lib/core_ext`), valores efetivos dos defaults.
+- **Remoto (autoridade):** os 12 jobs de `ci-test.yml` verdes no SHA da head da PR, com as exclusões
+  conhecidas (§2.7) registradas.
+- **Preview da PR:** cobre busca (Elasticsearch), páginas ERB e caminhos fora do CI. Registrar URL,
+  SHA implantado e readiness antes do smoke.
 
 ### 4.5 Verificação e aceite
 
-1. **Security Scan verde**: Brakeman 8.0.6 sai com 0, sem warning `EOLRails`.
-2. **Suíte verde no CI**: Minitest + RSpec (5 shards) + Frontend (4 shards) + Lint.
-3. **Smoke test no preview** (`ndesk-pr-{N}.staging-preview.newbyte.net.br`, UI clássica, pt-BR):
-   login/logout; criar, responder e fechar ticket; artigo com `<>&"'` e caracteres U+2028 no corpo e
-   no título aparecendo corretos no zoom, na overview e na busca; taskbar e coleções (drag & drop,
-   recolher, F5); tela de admin (configurações, usuários); fluxo de redirect pós-login e, se
-   configurado no preview, login OAuth; páginas ERB (login, 404 de rota real).
-4. **Release**: tag `nb.*` seguinte (sugestão `nb.v1.6.0`, por ser mudança de plataforma), deploy
-   pelo workflow existente, smoke reduzido em produção (login, abrir ticket, taskbar).
-5. **Rollback**: reverter a PR na `newbyte-stable` e cortar tag da versão anterior; sem migrations
-   nesta task, então o banco não trava o retorno.
+Registro do QA em `.newbyte/qa/{N}/` (convenção do `.newbyte/qa/README.md`: data, tester, SHA de
+head e base, ambiente, resultado esperado por caso, evidência, casos não testados, totais, Veredito).
 
-Critérios de aceite da task (Plane) atualizados para refletir 1–4; o 5º é "release em produção sem
-regressão".
+Casos mínimos do smoke no preview, UI clássica, usuário pt-BR:
 
-## 5. Riscos
+| Caso | Resultado esperado |
+|---|---|
+| Login e logout como agente | sessão criada; cookie de sessão com `Secure`; redirect pós-login para `/#` |
+| Criar ticket com título e artigo contendo `<>&"'` e U+2028/U+2029 | zoom, overview e busca mostram o texto literal, sem entidades e sem quebra |
+| Responder e **finalizar** o ticket (estado de categoria `closed`) | estado muda; CSAT: cliente vê a pesquisa, envia Resolução/Atendimento/comentário com o mesmo corpus; F5 preserva e não repete a pesquisa |
+| Taskbar: uma Aba Solta e duas Abas numa Coleção nomeada; recolher; F5; logout/login | ordem, membros, nome e estado recolhido preservados; fechar o último membro remove a Coleção |
+| Tela de admin (configurações, usuários) | carrega e salva sem erro |
+| Página pública da Knowledge Base (ERB) | renderiza |
+| Login OAuth | request spec incondicional pelo formato da URL; smoke real só se houver provider configurado no preview (senão N/A registrado) |
+| desktop-view e mobile | carregam a tela inicial; se não implantados, N/A registrado |
+
+### 4.6 Release e rollback
+
+Pré-condições para criar a tag `nb.*` (sugestão `nb.v1.6.0`, mudança de plataforma):
+
+1. os 12 jobs verdes no SHA da head da PR e merge sem squash na `newbyte-stable`;
+2. Veredito aprovado do QA no preview, no mesmo SHA;
+3. tag única apontando para o merge commit; registrar SHA do merge, tag e tag da imagem impressa
+   pelo job de deploy;
+4. smoke pós-deploy obrigatório em produção: login, criar ticket, abrir a Aba de um ticket existente,
+   Taskbar.
+
+Rollback, sempre com tag **nova** (nunca mover ou reutilizar tag):
+
+- **regressão só dos defaults:** reverter o commit 2 na `newbyte-stable` e cortar tag nova;
+- **regressão do framework/gems:** reverter os dois commits de implementação e cortar tag nova.
+
+Sem migrations nesta task (a confirmar no diff final), o banco não trava o retorno.
+
+## 5. Critérios de aceite (Plane)
+
+- **Security Scan:** Brakeman 8.0.6 sai com 0 no CI, sem warning `EOLRails`.
+- **CI:** todos os jobs de `ci-test.yml` verdes na head da PR.
+- **Preview:** smoke de §4.5 executado no preview da PR com Veredito aprovado em `.newbyte/qa/{N}/`.
+- **Release:** tag `nb.*` no merge aprovado, deploy pelo workflow existente e smoke pós-deploy sem
+  regressão.
+
+Rollback (§4.6) é contingência, não critério.
+
+## 6. Riscos
 
 | Risco | Prob. | Mitigação |
 |---|---|---|
-| Regressão de comportamento por `escape_json_responses = false` em consumidor que dependia do escape | baixa | smoke com `<>&` no preview; commit 2 reversível sozinho |
-| `UnsafeRedirectError` em redirect dinâmico não coberto pela suíte | média | auditoria completa de `redirect_to` (§4.3.2) + smoke de login/OAuth |
+| Consumidor externo dependendo dos bytes escapados do JSON | baixa | nenhum conhecido; commit 2 reversível sozinho |
+| `PathRelativeRedirectError` em backend OAuth que devolva valor inesperado | baixa | request specs por backend; smoke de login |
 | Brakeman 8.0.6 traz checks novos com achados reais | média | corrigir; nunca ignorar em massa |
-| Deprecação do 8.1 disparada por código do app quebra muitos specs | baixa (greps zerados) | corrigir na origem; D7 |
-| Monkey patch em `lib/core_ext` com assinatura alterada no 8.1 | baixa | diff contra a fonte antes da suíte (§4.3.1) |
-| NDesk à frente do upstream: conflitos em `Gemfile`, `Gemfile.lock`, `application.rb` nos próximos syncs | certa | conflitos triviais; quando o upstream for a 8.1, reconverge |
-| Suíte local lenta ou instável fora do devcontainer | média | CI é a autoridade; rodar localmente os diretórios tocados e o `zeitwerk:check` |
+| Deprecação do 8.1 disparada por código do app quebra specs | baixa (greps zerados) | corrigir na origem (D7) |
+| Reopening em `config/initializers` com corpo mudado no 8.1 (`lock!`) | média | diff com as gems instaladas antes da suíte |
+| Resolver do Bundler muda algo fora da allowlist | média | `--print` + comparação antes de gravar; parar e reabrir escopo |
+| NDesk à frente do upstream: conflitos em `Gemfile`, lock e `application.rb` nos próximos syncs | certa | conflitos triviais; quando o upstream for a 8.1, reconverge |
+| Preview não sobe ou implanta SHA diferente | média | D10: bloqueia; registrar SHA implantado |
 
-## 6. Fora de escopo
+## 7. Fora de escopo
 
 - Bump de Ruby (3.4.8).
-- Atualização de outras gems além de Rails (com componentes) e Brakeman.
+- Atualização de outras gems além da allowlist de §4.1.
 - Sincronização com o upstream Zammad 7.1.
 - Silenciar o EOLRails via `brakeman.ignore` ou flags do Brakeman.
-- Mudanças de deploy/CI além do necessário para o Security Scan passar.
+- Mudanças de deploy/CI além do necessário para o Security Scan passar. As ressalvas de infra já
+  registradas no `.newbyte/qa/README.md` (fail-fast do deploy, `scp` da PR #24, proteção de branch)
+  continuam abertas e não entram nesta task.
 
-## 7. Perguntas em aberto
+## 8. Perguntas em aberto
 
-- O preview de PR é provisionado automaticamente ao abrir a PR? (o usuário afirmou que sim; o QA da
-  PR #23 confirma o padrão de URL). Se o preview não subir, o smoke roda na stack local e o critério
-  é registrado como executado localmente, com decisão explícita do usuário.
+- Quem provisiona o preview da PR (fonte/owner fora deste repo)? Necessário só se o preview não subir.
+- Quais das três UIs (clássica, desktop-view, mobile) estão implantadas em produção? Define os N/A do
+  smoke; a resposta vai para o roteiro de QA.
 - Número da tag de release: decidido na fase de Release.
