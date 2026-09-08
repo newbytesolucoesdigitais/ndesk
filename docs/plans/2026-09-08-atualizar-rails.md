@@ -30,6 +30,10 @@ executa lê os dois.
 - `config.load_defaults 8.1` sem arquivo `new_framework_defaults_8_1.rb`.
 - Deprecação disparada por código do app é corrigida na origem; nunca entra em
   `spec/support/deprecation_toolkit.rb`.
+- **Banco de teste por migrations:** o dump de `db/schema.rb` fica desligado em `test` e `development`; um
+  `db/schema.rb` residual deve ser apagado (`rm -f db/schema.rb`, gitignored) antes de recriar o banco (R7/R8).
+- **RSpec local:** todo gate de RSpec usa `--tag '~searchindex' --tag '~integration' --tag '~required_envs'`,
+  como o CI (não há Elasticsearch local nem no CI; R6 do ledger de execução).
 - **Shell:** a máquina usa zsh. Todo gate roda dentro de `bash -euo pipefail <<'GATE' … GATE`, define
   suas próprias variáveis, grava saída em arquivo e afirma o status numérico. Nada de `${PIPESTATUS}`
   nem de `~tag` sem aspas.
@@ -51,6 +55,7 @@ executa lê os dois.
 |---|---|---|
 | Modificar | `Gemfile:7` | constraint do Rails |
 | Modificar | `Gemfile.lock` | resolução (allowlist) |
+| Modificar | `config/environments/test.rb`, `config/environments/development.rb` | `dump_schema_after_migration = false` (R7/R8): banco local sempre por migrations; Rails 8.1 dumpa colunas em ordem alfabética e `db:migrate` num banco vazio carrega o `schema.rb` |
 | Modificar | `config/initializers/active_record_lock_issue_3664.rb` | replicar o guard de somente-leitura do 8.1 no `lock!` patchado |
 | Modificar | `spec/lib/active_record/locking/pessimistic_spec.rb` | regressão do guard |
 | Criar | `spec/requests/framework_query_string_spec.rb` | contrato do parser de query string do 8.1 |
@@ -408,7 +413,7 @@ set +e; bundle exec brakeman -q -o "$S/c1-brakeman.txt" -o "$S/c1-brakeman.html"
 grep -E "Security Warnings|EOLRails" "$S/c1-brakeman.txt" || true
 [ "$st" -eq 0 ] || { echo "brakeman: esperado 0, obtido $st (ver $S/c1-brakeman.txt)"; exit 1; }
 bin/rails assets:precompile > "$S/c1-assets.txt" 2>&1; tail -2 "$S/c1-assets.txt"
-bundle exec rspec \
+bundle exec rspec --tag '~searchindex' --tag '~integration' --tag '~required_envs' \
   spec/requests/session_spec.rb spec/requests/external_credentials_spec.rb spec/requests/ticket_spec.rb \
   spec/requests/ticket/article_attachments_spec.rb spec/requests/framework_query_string_spec.rb \
   spec/lib/core_ext spec/lib/sessions spec/lib/active_record spec/lib/active_model spec/jobs \
@@ -776,7 +781,8 @@ bundle exec rails zeitwerk:check > "$S/c2-zeitwerk.txt"; tail -1 "$S/c2-zeitwerk
 set +e; bundle exec brakeman -q -o "$S/c2-brakeman.txt" -o "$S/c2-brakeman.html"; st=$?; set -e
 [ "$st" -eq 0 ] || { echo "brakeman: esperado 0, obtido $st"; exit 1; }
 bin/rails assets:precompile > "$S/c2-assets.txt" 2>&1; tail -2 "$S/c2-assets.txt"
-bundle exec rspec spec/requests/session_spec.rb spec/requests/ticket_spec.rb \
+bundle exec rspec --tag '~searchindex' --tag '~integration' --tag '~required_envs' \
+  spec/requests/session_spec.rb spec/requests/ticket_spec.rb \
   spec/requests/ticket/article_attachments_spec.rb spec/requests/knowledge_base_public \
   spec/controllers spec/views spec/lib/sessions spec/lib/core_ext spec/lib/active_record \
   spec/lib/active_model spec/lib/external_credential spec/models > "$S/c2-rspec.txt"
