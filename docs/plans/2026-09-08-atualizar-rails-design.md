@@ -314,7 +314,8 @@ Rollback (§4.6) é contingência, não critério.
 
 ## 8. Perguntas em aberto
 
-- Quem provisiona o preview da PR (fonte/owner fora deste repo)? Necessário só se o preview não subir.
+- Preview da PR: provisionado automaticamente ao abrir a PR, por sistema fora deste repo (resposta do
+  usuário em 2026-09-08). Se não subir, o usuário é avisado e a release fica bloqueada (D10).
 - `.claude/NEWBYTE_WORKFLOW.md` está desatualizado (formato de tag `nb.v{major}.{minor}` vs. `nb.v1.5.1`
   real; deploy via Coolify vs. workflow por tag + SSH). Atualizar é decisão do usuário; a entrada de
   changelog desta task entra de qualquer forma.
