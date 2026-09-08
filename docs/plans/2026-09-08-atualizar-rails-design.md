@@ -1,9 +1,9 @@
 # Spec — Atualizar Rails 8.0.4 → 8.1.3.1 (NDESK-45)
 
 - **Task:** [NDESK-45](https://plane.byte.newbyte.net.br/engenharia/browse/NDESK-45/) · `[NDesk] Atualizar Rails`
-- **Data:** 2026-09-08 · **Fase:** Planning · **Revisão:** v2, após grill com modelo OpenAI
+- **Data:** 2026-09-08 · **Fase:** Planning · **Revisão:** v2.1 (v2 aprovada pelo usuário; v2.1 incorpora o grill do plano)
 - **Branch:** `chore/rails-8.1-upgrade` (base `newbyte-stable` @ `43e237b860`, tag `nb.v1.5.1`)
-- **Status:** aguardando aprovação da versão escrita
+- **Status:** v2 aprovada em 2026-09-08; ajustes v2.1 marcados nesta revisão
 
 ## 1. Problema
 
@@ -107,7 +107,7 @@ Fontes: [guia de upgrade](https://guides.rubyonrails.org/upgrading_ruby_on_rails
 | `CurrentAttributes` zerado ao fim de cada request | Zammad tem 2 classes `CurrentAttributes` e 4 `clear_all` manuais (has_cache, sessions/client, sessions/event, job_executor) | suíte |
 | `schema.rb` ordenado alfabeticamente | `db/schema.rb` é ignorado pelo git | nenhuma |
 | `database.yml`: `pool` → `max_connections` | Rails 8.1.3.1 lê `pool:` silenciosamente como fallback de `max_connections` (`HashConfig`); só o método Ruby `HashConfig#pool` é deprecado, e o app não o chama. Manter `pool: 50` | nenhuma |
-| `lock!` recusa lock pessimista em role read-only | `config/initializers/active_record_lock_issue_3664.rb` reabre `Pessimistic#lock!(lock = true)` via alias e delega a `orig_lock!` | diff de assinatura na execução (§2.6) |
+| `lock!` ganha guard no topo: levanta `ActiveRecord::ReadOnlyError` em `while_preventing_writes` | `config/initializers/active_record_lock_issue_3664.rb` reabre `Pessimistic#lock!(lock = true)`; o ramo que faz `reload(lock:)` e retorna **pula o guard** (um `SELECT … FOR UPDATE` não conta como escrita). Correção no commit 1: replicar o guard no topo do método patchado | spec de regressão em `spec/lib/active_record/locking/pessimistic_spec.rb` com `while_preventing_writes` |
 | Removido `to_time` sem preservar timezone | 3 usos de `to_time` (ics_file/parse, handles_overview_caching, base_cached_connection); `load_defaults 8.0` já preserva timezone (`to_time_preserves_timezone = :zone`), sem mudança de comportamento | suíte |
 | Removidos: `Benchmark.ms`, `rails/console/methods`, `Time#since(Time)`, `Time + TimeWithZone`, rotas com múltiplos paths, adapter Sucker Punch, Active Storage `:azure`, `:retries` SQLite, colunas unsigned MySQL | grep: 0 usos | auditado, N/A |
 | Erro (não mais deprecação): `class_name:` em `belongs_to` polimórfico | grep: 0 usos | auditado, N/A |
@@ -116,9 +116,9 @@ Fontes: [guia de upgrade](https://guides.rubyonrails.org/upgrading_ruby_on_rails
 
 ### 2.6 Pontos de acoplamento com internals
 
-Comparação de fonte 8.0.4 × 8.1.3.1 (feita no grill, sem boot): **nenhum patch de `lib/core_ext`
-muda de assinatura ou de predicado no 8.1.3.1.** A execução repete a comparação com as gems
-instaladas e cobre também os reopenings fora de `lib/core_ext`.
+Comparação de fonte 8.0.4 × 8.1.3.1 (grills, sem boot): **nenhum patch de `lib/core_ext` muda de
+assinatura no 8.1.3.1**, mas corpos mudaram (`lock!`, `pluck`, batches, callbacks). Assinatura igual não
+basta: a execução compara os **corpos** dos métodos reabertos e roda os specs de cada patch.
 
 | Local | Método reaberto | Nota |
 |---|---|---|
@@ -132,13 +132,13 @@ instaladas e cobre também os reopenings fora de `lib/core_ext`.
 | `lib/core_ext/activesupport/lib/active_support/callbacks.rb` | `ClassMethods#without_callback` | sem colisão |
 | `lib/core_ext/activesupport/lib/active_support/tagged_logging/formatter.rb` | `Formatter#call` | assinatura mantida |
 | `config/initializers/active_record_lock_issue_3664.rb` | `Locking::Pessimistic#lock!` | 8.1 mudou o corpo de `lock!` |
-| `config/initializers/active_record_as_batches.rb` | batches de AR | verificar na execução |
-| `config/initializers/activemodel_error.rb` | `ActiveModel::Error` | verificar na execução |
-| `config/initializers/delayed_jobs_ensure_active_job_lock_removal.rb`, `delayed_jobs_timeout_per_job.rb` | Delayed Job / AJ | verificar na execução |
+| `config/initializers/active_record_as_batches.rb` | define `ActiveRecord::AsBatches#as_batches` (módulo novo incluído em `Relation`); não reabre método upstream | specs que usam `as_batches` |
+| `config/initializers/activemodel_error.rb` | `ActiveModel::Errors#add` (alias) e `ActiveModel::Error#localized_full_message` (novo) | upstream em `active_model/errors.rb`; `spec/lib/active_model/errors_spec.rb` |
+| `config/initializers/delayed_jobs_timeout_per_job.rb` | `JobWrapper#max_run_time` | com `max_attempts`, cobre a integração AJ × Delayed Job |
 | `lib/active_support/cache/zammad_file_store.rb` | `ActiveSupport::Cache::FileStore` | verificar na execução |
 
-Os três patches de cookie `Secure` não têm teste contratual próprio; a execução adiciona um request
-spec que afirma o atributo `Secure` no `Set-Cookie` da sessão.
+Os três patches de cookie `Secure` têm teste contratual em `spec/requests/session_spec.rb` ("sets Cookie
+with 'secure' flag"), que entra nos gates dos dois commits.
 
 ### 2.7 Suíte de testes e CI
 
@@ -159,7 +159,7 @@ spec que afirma o atributo `Secure` no `Set-Cookie` da sessão.
 | D1 | Versão alvo **Rails 8.1.3.1**, `gem 'rails', '~> 8.1.0'` | última publicada; única série que silencia o EOLRails nos dois Brakemans; segurança até 2027-10-10 |
 | D2 | **Adotar `config.load_defaults 8.1` nesta task**, sem `new_framework_defaults_8_1.rb` | decisão do usuário; estilo do upstream; os sete ajustes verificados um a um (§2.5) |
 | D3 | Subir **Brakeman para 8.0.6** junto | gem só de desenvolvimento; com 8.0.2 o EOLRails ficaria mudo para a série 8.1; alinha com o upstream |
-| D4 | **Uma PR** com os commits de planejamento (spec, plano) mais **dois commits de implementação**: (1) bump Rails + Brakeman + lock + ajustes que mudam só pela troca das gems; (2) `load_defaults 8.1` + ajustes causados pelos sete defaults + seus testes. **Merge sem squash** (prática atual da `newbyte-stable`: merge commits) | um preview e um QA; o commit 2 pode ser revertido sozinho |
+| D4 | **Uma PR** com os commits de planejamento (spec, plano) mais **dois commits de implementação**: (1) bump Rails + Brakeman + lock + ajustes que mudam só pela troca das gems; (2) `load_defaults 8.1` + ajustes causados pelos sete defaults + seus testes. Correções após o push entram como **commits novos rotulados** `(bump)` ou `(defaults)` no título; o histórico nunca é reescrito (`.claude/NEWBYTE_WORKFLOW.md` proíbe operações destrutivas). **Merge sem squash** (prática atual da `newbyte-stable`: merge commits) | um preview e um QA; o conjunto `(defaults)` pode ser revertido sem o `(bump)` |
 | D5 | Ruby fica em 3.4.8; **rack fica em 2.2.x (invariante)**; mudanças no lock limitadas à allowlist de §4.1 | fora do escopo; patch em `Rack::Utils` incompatível com Rack 3 |
 | D6 | `database.yml` mantém `pool: 50` | Rails 8.1.3.1 lê `pool:` como fallback de `max_connections` sem warning; igual ao upstream |
 | D7 | Deprecações no código do app são corrigidas na origem, nunca adicionadas a `allowed_deprecations` | política já vigente na suíte |
@@ -206,13 +206,15 @@ Resultados da auditoria (fechados no grill; a execução os repete com as gems i
    para host próprio não muda.
 2. **`head` após render:** nenhuma correção (§2.5).
 3. **Finders sem ordem:** nenhuma correção (§2.5).
-4. **Internals (§2.6):** diff método a método com as gems instaladas; request spec do cookie
-   `Secure`.
+4. **Internals (§2.6):** diff dos corpos dos métodos reabertos com as gems instaladas; specs dos
+   patches (`pessimistic_spec.rb`, `errors_spec.rb`, `session_spec.rb`); guard de somente-leitura
+   replicado no patch de `lock!`, com teste de regressão.
 5. Deprecações do app corrigidas na origem (D7).
 6. Brakeman 8.0.6: achados novos legítimos são corrigidos; falsos positivos entram em
    `config/brakeman.ignore` com justificativa no commit.
-7. Comentários que citam a versão do Rails são atualizados no commit correspondente, sem mudar
-   comportamento.
+7. Comentários que citam a versão do Rails (`config/application.rb:22`,
+   `spec/models/ticket/satisfaction_rating_spec.rb:15,59`) são atualizados no commit 2, sem mudar
+   comportamento. Entrada de changelog em `.claude/NEWBYTE_WORKFLOW.md` (obrigatória pelo workflow).
 
 Fronteira dos commits: o commit 1 contém gems, lock e ajustes que mudam só pela troca das gems
 (§2.5, tabela "independentemente dos defaults", e §2.6); o commit 2 contém `load_defaults 8.1`, os
@@ -221,18 +223,23 @@ o commit 1.
 
 ### 4.4 Ambiente e gates
 
-- **Local (obrigatório):** `rbenv install 3.4.8`, `bundle install`, preparação de banco/assets
-  (cookbook), boot, `zeitwerk:check`, Brakeman, specs dos pontos afetados (requests de sessão, OAuth,
-  tickets, artigos, patches de `lib/core_ext`), valores efetivos dos defaults.
+- **Local (obrigatório):** `brew install imlib2 gnupg` (rszr e specs de PGP), `rbenv install 3.4.8`,
+  `bundle install`, preparação de banco/assets (cookbook), boot em `test`, `zeitwerk:check`, Brakeman,
+  `assets:precompile` após o bump, specs dos pontos afetados, valores efetivos dos sete defaults em
+  `test` e `production`. Comandos de gate rodam em `bash` com `set -euo pipefail` e status numérico
+  (o shell da máquina é zsh; `~tag` sem aspas e `PIPESTATUS` não funcionam nele).
 - **Remoto (autoridade):** os 12 jobs de `ci-test.yml` verdes no SHA da head da PR, com as exclusões
-  conhecidas (§2.7) registradas.
+  conhecidas (§2.7) registradas. Os 4 jobs de frontend e o Lint não dependem desta mudança e são
+  só remotos; localmente roda `pnpm lint:md` (docs tocados).
 - **Preview da PR:** cobre busca (Elasticsearch), páginas ERB e caminhos fora do CI. Registrar URL,
   SHA implantado e readiness antes do smoke.
 
 ### 4.5 Verificação e aceite
 
-Registro do QA em `.newbyte/qa/{N}/` (convenção do `.newbyte/qa/README.md`: data, tester, SHA de
-head e base, ambiente, resultado esperado por caso, evidência, casos não testados, totais, Veredito).
+Registro de trabalho do QA em `.newbyte/qa/{N}/` (convenção local do `.newbyte/qa/README.md`; a pasta
+não é rastreada pelo git). O registro **compartilhado** é o comentário de Veredito na PR e a descrição
+do sub-item QA no Plane, com data, tester, SHA de head e base, URL do preview, resultado por caso,
+evidência, casos não testados, totais e Veredito.
 
 Casos mínimos do smoke no preview, UI clássica, usuário pt-BR:
 
@@ -240,30 +247,37 @@ Casos mínimos do smoke no preview, UI clássica, usuário pt-BR:
 |---|---|
 | Login e logout como agente | sessão criada; cookie de sessão com `Secure`; redirect pós-login para `/#` |
 | Criar ticket com título e artigo contendo `<>&"'` e U+2028/U+2029 | zoom, overview e busca mostram o texto literal, sem entidades e sem quebra |
-| Responder e **finalizar** o ticket (estado de categoria `closed`) | estado muda; CSAT: cliente vê a pesquisa, envia Resolução/Atendimento/comentário com o mesmo corpus; F5 preserva e não repete a pesquisa |
+| Responder e **finalizar** o ticket (estado de categoria `closed`) | estado muda; CSAT: Cliente vê a Avaliação de Satisfação, envia Nota de Resolução, Nota de Atendimento e comentário com o mesmo corpus; F5 preserva e não repete a avaliação |
 | Taskbar: uma Aba Solta e duas Abas numa Coleção nomeada; recolher; F5; logout/login | ordem, membros, nome e estado recolhido preservados; fechar o último membro remove a Coleção |
 | Tela de admin (configurações, usuários) | carrega e salva sem erro |
 | Página pública da Knowledge Base (ERB) | renderiza |
 | Login OAuth | request spec incondicional pelo formato da URL; smoke real só se houver provider configurado no preview (senão N/A registrado) |
-| desktop-view e mobile | carregam a tela inicial; se não implantados, N/A registrado |
+| desktop-view e mobile | N/A: o NDesk usa só a UI clássica (`.claude/NEWBYTE_WORKFLOW.md`, seção Frontend) |
 
 ### 4.6 Release e rollback
 
-Pré-condições para criar a tag `nb.*` (sugestão `nb.v1.6.0`, mudança de plataforma):
+Pré-condições para criar a tag `nb.*` (sugestão `nb.v1.6.0`, mudança de plataforma; o número é
+perguntado ao usuário antes de criar, como manda o workflow):
 
-1. os 12 jobs verdes no SHA da head da PR e merge sem squash na `newbyte-stable`;
+1. os 12 jobs verdes no SHA da head da PR e merge sem squash na `newbyte-stable`; se a head mudar
+   depois do QA, CI e QA se repetem;
 2. Veredito aprovado do QA no preview, no mesmo SHA;
-3. tag única apontando para o merge commit; registrar SHA do merge, tag e tag da imagem impressa
-   pelo job de deploy;
-4. smoke pós-deploy obrigatório em produção: login, criar ticket, abrir a Aba de um ticket existente,
-   Taskbar.
+3. `git diff --stat 43e237b860..<merge> -- db/migrate` vazio (zero migrations);
+4. ressalvas do Veredito da PR #25 (`.newbyte/qa/README.md`: fail-fast do `script` de deploy,
+   `deploy@host:porta` confirmado, `scp` da PR #24) fechadas **ou dispensadas explicitamente pelo
+   usuário** antes da tag; workflow de deploy relido no SHA do merge;
+5. tag inexistente local e remota; tag única apontando para o merge commit; registrar SHA do merge,
+   tag e a tag da imagem impressa pelo job de deploy; aguardar build e deploy verdes;
+6. smoke pós-deploy obrigatório em produção: login, criar ticket, abrir a Aba de um ticket existente,
+   Taskbar; confirmar a versão servida (`/api/v1/version`, carimbada com a tag pelo build).
 
-Rollback, sempre com tag **nova** (nunca mover ou reutilizar tag):
+Rollback, sempre por PR de revert e tag **nova** (nunca mover ou reutilizar tag):
 
-- **regressão só dos defaults:** reverter o commit 2 na `newbyte-stable` e cortar tag nova;
-- **regressão do framework/gems:** reverter os dois commits de implementação e cortar tag nova.
+- **regressão só dos defaults:** reverter o commit 2 e seus commits `(defaults)`, na ordem inversa;
+- **regressão do framework/gems:** reverter também o commit 1 e seus commits `(bump)`, depois dos
+  anteriores.
 
-Sem migrations nesta task (a confirmar no diff final), o banco não trava o retorno.
+A pré-condição 3 garante zero migrations, então o banco não trava o retorno.
 
 ## 5. Critérios de aceite (Plane)
 
@@ -301,6 +315,7 @@ Rollback (§4.6) é contingência, não critério.
 ## 8. Perguntas em aberto
 
 - Quem provisiona o preview da PR (fonte/owner fora deste repo)? Necessário só se o preview não subir.
-- Quais das três UIs (clássica, desktop-view, mobile) estão implantadas em produção? Define os N/A do
-  smoke; a resposta vai para o roteiro de QA.
+- `.claude/NEWBYTE_WORKFLOW.md` está desatualizado (formato de tag `nb.v{major}.{minor}` vs. `nb.v1.5.1`
+  real; deploy via Coolify vs. workflow por tag + SSH). Atualizar é decisão do usuário; a entrada de
+  changelog desta task entra de qualquer forma.
 - Número da tag de release: decidido na fase de Release.
