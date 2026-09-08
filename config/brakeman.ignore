@@ -118,6 +118,29 @@
       "note": ""
     },
     {
+      "warning_type": "Redirect",
+      "warning_code": 18,
+      "fingerprint": "e6a0c13f4145196e5282cb79f8cd96888a27e6aa4bf58ba72d54d5dd1fe28223",
+      "check_name": "Redirect",
+      "message": "Possible unprotected redirect",
+      "file": "app/controllers/external_credentials_controller.rb",
+      "line": 47,
+      "link": "https://brakemanscanner.org/docs/warning_types/redirect/",
+      "code": "redirect_to(ExternalCredential.link_account(params[:provider].downcase, session[:request_token], link_params), :allow_other_host => true)",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "ExternalCredentialsController",
+        "method": "callback"
+      },
+      "user_input": "ExternalCredential.link_account(params[:provider].downcase, session[:request_token], link_params)",
+      "confidence": "Weak",
+      "cwe_id": [
+        601
+      ],
+      "note": "Same finding as the already ignored one in #link_account (line 39). The String returned by ExternalCredential.link_account is always built by the first-party backend from the instance's own Setting http_type/fqdn (lib/external_credential/exchange.rb, lib/external_credential/microsoft_base.rb), never from request parameters. allow_other_host: true is the original intent of this line; it only started reaching redirect_to after NDESK-45 fixed the argument, which is what surfaced this warning. Covered by spec/requests/external_credentials_spec.rb."
+    },
+    {
       "warning_type": "Denial of Service",
       "warning_code": 76,
       "fingerprint": "381781925211cac1f2592a6537f4abc050f98b081e5554b7d3d70a9454157e35",

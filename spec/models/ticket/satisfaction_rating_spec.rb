@@ -12,7 +12,7 @@ RSpec.describe Ticket::SatisfactionRating, type: :model do
 
   describe 'associations' do
     # NOTE: the model marks ticket_id/customer_id/agent_id/score_service/score_resolution as attr_readonly.
-    # Under Rails' load_defaults 8.0, assigning a readonly attribute on a *persisted*
+    # Since Rails' load_defaults 8.0 (kept in 8.1), assigning a readonly attribute on a *persisted*
     # record raises ActiveRecord::ReadonlyAttributeError. The shoulda-matchers
     # belong_to matcher mutates the FK to probe the association, so it must run
     # against a *new* (unpersisted) record where readonly assignment is allowed.
@@ -56,7 +56,7 @@ RSpec.describe Ticket::SatisfactionRating, type: :model do
   describe 'immutability (attr_readonly)' do
     subject(:rating) { create(:ticket_satisfaction_rating, ticket:, customer:, score_service: 3, score_resolution: 4) }
 
-    # Under load_defaults 8.0, assigning a readonly attribute on a persisted
+    # Since load_defaults 8.0 (kept in 8.1), assigning a readonly attribute on a persisted
     # record raises rather than silently ignoring the change.
     it 'does not persist a changed service score' do
       aggregate_failures do

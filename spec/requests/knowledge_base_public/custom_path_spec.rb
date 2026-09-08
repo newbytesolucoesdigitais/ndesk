@@ -45,8 +45,12 @@ RSpec.describe 'KnowledgeBase public custom path', type: :request do
     context 'when called with a custom port' do
       before { fetch path: path, port: 8080 }
 
+      # Rails 8.1 (`action_on_path_relative_redirect = :raise`, NDESK-45): the expected
+      # value goes through `_compute_redirect_to_location` too, so it has to be the
+      # absolute URL the controller actually sends instead of the path-relative
+      # ":8080/..." that used to be joined to the current host.
       it { expect(response).to have_http_status(:found) }
-      it { expect(response).to redirect_to ":8080/path/#{locale}" }
+      it { expect(response).to redirect_to "http://www.example.com:8080/path/#{locale}" }
     end
 
     context 'when called with the path and subdomain' do

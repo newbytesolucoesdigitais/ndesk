@@ -19,8 +19,9 @@ end
 
 module Zammad
   class Application < Rails::Application
-    # Initialize configuration defaults for originally generated Rails version.
-    config.load_defaults 8.0
+    # Framework defaults adotados (NDESK-45): os sete ajustes do 8.1 têm um
+    # teste cada em spec/config/framework_defaults_spec.rb.
+    config.load_defaults 8.1
 
     Rails.autoloaders.each do |autoloader|
       autoloader.ignore            "#{config.root}/app/frontend"
