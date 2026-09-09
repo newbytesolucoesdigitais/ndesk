@@ -16,7 +16,7 @@ module ActiveRecord::Locking::Pessimistic
 
     def lock!(lock = true) # rubocop:disable Style/OptionalBooleanParameter
       # Rails 8.1 guard (activerecord/lib/active_record/locking/pessimistic.rb):
-      # precisa valer também no ramo abaixo, que retorna sem chamar orig_lock!.
+      # it must apply to the branch below too, which returns without calling orig_lock!.
       if self.class.current_preventing_writes
         raise ActiveRecord::ReadOnlyError, 'Lock query attempted while in readonly mode'
       end

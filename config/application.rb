@@ -19,8 +19,8 @@ end
 
 module Zammad
   class Application < Rails::Application
-    # Framework defaults adotados (NDESK-45): os sete ajustes do 8.1 têm um
-    # teste cada em spec/config/framework_defaults_spec.rb.
+    # Adopted 8.1 framework defaults (NDESK-45): each of the seven changes has its
+    # own example in spec/config/framework_defaults_spec.rb.
     config.load_defaults 8.1
 
     Rails.autoloaders.each do |autoloader|

@@ -1,11 +1,28 @@
 # Copyright (C) 2012-2026 Zammad Foundation, https://zammad-foundation.org/
 
 # require all database migrations so we can test them without manual require
+# These requires make the migration constants resolvable when the spec files load, but
+# `zammad:db:reset` in `before(:suite)` reloads every migration class, so use `migration_class`
+# (below) instead of `described_class` whenever the live class is needed.
 Rails.root.join('db/migrate').children.each do |migration|
   require migration.to_s
 end
 
 module DbMigrationHelper
+
+  # Resolves the migration class of the current example by name.
+  # `zammad:db:reset` in `before(:suite)` reloads every migration class
+  # (ActiveRecord::MigrationProxy#load_migration does `remove_const` + `load`), so the class
+  # captured by `described_class` when the spec file was loaded is a dead object: a `stub_const`
+  # by name reaches the live class, not that one. Resolving by name keeps both ends together.
+  #
+  # @example
+  #  migration_class.new.some_migration_method
+  #
+  # @return [Class] the live migration class
+  def migration_class
+    described_class.name.constantize
+  end
 
   # Provides a helper method to execute a migration for the current class.
   # Make sure to define type: :db_migration in your RSpec.describe call.
@@ -22,13 +39,10 @@ module DbMigrationHelper
   #
   # @return [nil]
   def migrate(direction = :up)
-    # Sem `db/schema.rb` para semear o banco vazio (NDESK-45: o dump ficou desligado em
-    # test/development), o `zammad:db:reset` do `before(:suite)` roda as migrations de
-    # verdade. O ActiveRecord::MigrationProxy#load_migration faz `remove_const` + `load`
-    # em cada uma, então a classe capturada por `described_class` quando o arquivo de spec
-    # foi carregado vira um objeto morto: um `stub_const` pelo nome atinge a classe viva e
-    # não a instanciada aqui. Resolver pelo nome mantém as duas pontas na mesma classe.
-    instance = described_class.name.constantize.new
+    # `described_class` here is the class captured at spec load time, which
+    # `zammad:db:reset` has since replaced (changelog entry 2026-09-08 in
+    # `.claude/NEWBYTE_WORKFLOW.md`), so instantiate the live one.
+    instance = migration_class.new
     yield(instance) if block_given?
 
     instance.suppress_messages do

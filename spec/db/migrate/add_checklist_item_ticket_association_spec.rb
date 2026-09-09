@@ -3,8 +3,6 @@
 require 'rails_helper'
 
 RSpec.describe AddChecklistItemTicketAssociation, db_strategy: :reset, type: :db_migration do
-  let(:migration) { described_class.new }
-
   before do
     remove_reference :checklist_items, :ticket
     Checklist::Item.reset_column_information

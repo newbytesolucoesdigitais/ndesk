@@ -44,9 +44,9 @@ Rails.application.configure do
   # Highlight code that triggered database queries in logs.
   config.active_record.verbose_query_logs = true
 
-  # db/schema.rb é git-ignored e o Rails 8.1 o despeja com as colunas em ordem alfabética.
-  # O db:migrate do zammad:db:reset carregaria esse dump em vez de rodar as migrations, e o
-  # banco de teste divergiria de produção na ordem das colunas (cabeçalho de csv_example).
+  # db/schema.rb is git-ignored and Rails 8.1 dumps its columns in alphabetical order.
+  # The db:migrate of zammad:db:reset would load such a dump instead of running the migrations,
+  # and the local database would diverge from production in column order (csv_example header).
   config.active_record.dump_schema_after_migration = false
 
   # Debug mode disables concatenation and preprocessing of assets.
