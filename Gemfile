@@ -25,6 +25,9 @@ gem 'daemons'
 gem 'delayed_job', git: 'https://github.com/zammad-deps/delayed_job', branch: 'threadsafe'
 gem 'delayed_job_active_record', git: 'https://github.com/zammad-deps/delayed_job_active_record', branch: 'update-limit-143'
 
+# benchmark leaves the Ruby default gems in 4.0; required by delayed_job and lib/background_services
+gem 'benchmark'
+
 # core - command line interface
 gem 'thor'
 

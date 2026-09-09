@@ -190,12 +190,13 @@ Alteracoes:
 - **Specs de migration instanciam a classe viva** (`spec/support/db_migration.rb`): sem `db/schema.rb`
   o `zammad:db:reset` do `before(:suite)` roda as migrations dentro do processo do RSpec e o
   `MigrationProxy` troca cada classe, deixando o `described_class` do arquivo de spec obsoleto.
-- **Warning novo do `benchmark` no boot**: a `activesupport` 8.1 deixou de depender de `benchmark`
-  (por isso a gem saiu do lock, bullet acima), mas `delayed_job` continua fazendo `require 'benchmark'`.
-  Com Ruby 3.4 isso imprime, em todo boot (RSpec, Minitest e o worker do `delayed_job` em producao), o
-  aviso de que `benchmark` deixara de ser gem padrao a partir do Ruby 4.0.0. Decisao pendente com o
-  usuario no momento da PR: adicionar `gem 'benchmark'` no `Gemfile` (reabre a allowlist) ou aceitar o
-  warning por ora.
+- **`benchmark` declarada de volta no `Gemfile`**: a `activesupport` 8.1 deixou de depender de
+  `benchmark` (por isso a gem saiu do lock, bullet acima), mas `delayed_job` (`lib/delayed/worker.rb:10`)
+  faz `require 'benchmark'` e `lib/background_services/service/base_delayed_jobs.rb:36` chama
+  `Benchmark.realtime` sem dar require, o que em todo boot (RSpec, Minitest e o worker do `delayed_job`
+  em producao) imprimia o aviso de que `benchmark` deixara de ser gem padrao a partir do Ruby 4.0.0.
+  Este commit declara `gem 'benchmark'` no `Gemfile` (lock resolve para `0.5.0`) e o warning de boot
+  desaparece.
 - Spec e plano: `docs/plans/2026-09-08-atualizar-rails-design.md`, `docs/plans/2026-09-08-atualizar-rails.md`.
 
 Arquivos modificados:
