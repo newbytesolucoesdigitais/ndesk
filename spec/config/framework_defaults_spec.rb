@@ -12,7 +12,7 @@ RSpec.describe 'Rails 8.1 framework defaults' do # rubocop:disable RSpec/Describ
     expect(config.loaded_config_version.to_s).to eq('8.1')
   end
 
-  it 'disables YJIT in local environments (development/test)' do
+  it 'keeps yjit disabled in the test environment (8.1 default: enabled only outside local envs)' do
     expect(config.yjit).to be(false)
   end
 

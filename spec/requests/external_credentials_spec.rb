@@ -118,6 +118,16 @@ RSpec.describe 'External Credentials', type: :request do
           end
         end
 
+        it 'redirects microsoft365 to an absolute error URL on its own host (String from the backend)' do
+          allow(ExternalCredential).to receive(:link_account)
+            .and_return("https://#{fqdn}/#channels/microsoft365/error/AADSTS65004")
+
+          get '/api/v1/external_credentials/microsoft365/callback'
+
+          expect(response).to have_http_status(:found)
+          expect(response.headers['Location']).to eq("https://#{fqdn}/#channels/microsoft365/error/AADSTS65004")
+        end
+
         it 'redirects google to the absolute app URL of the created channel' do
           channel = create(:google_channel)
           allow(ExternalCredential).to receive(:link_account).and_return(channel)
