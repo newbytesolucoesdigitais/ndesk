@@ -862,7 +862,8 @@ bundle exec rspec --tag '~searchindex' --tag '~integration' --tag '~required_env
 st14=$?
 set -e
 tail -3 "$S/rspec-1-4.log"
-grep -E '^rspec \./spec' "$S/rspec-1-4.log" | sed -E 's/^rspec (\S+):[0-9]+.*/\1/' | sort -u > "$S/rspec-1-4-failed-files.txt"
+# BSD sed não entende \S; o resumo do RSpec usa `rspec ./spec/x_spec.rb:12 # …` ou `rspec './spec/x_spec.rb[1:2]' # …`
+grep -E "^rspec '?\./spec" "$S/rspec-1-4.log" | sed -E "s/^rspec '?(\.\/[^ :'[]+).*/\1/" | sort -u > "$S/rspec-1-4-failed-files.txt"
 if [ "$st14" -ne 0 ]; then
   extra=$(comm -23 "$S/rspec-1-4-failed-files.txt" <(sort -u "$S/known-env-failures.txt"))
   [ -z "$extra" ] || { echo "FALHAS FORA DA LISTA CONHECIDA:"; echo "$extra"; exit 1; }
