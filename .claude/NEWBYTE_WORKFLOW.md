@@ -168,6 +168,7 @@ Arquivos modificados:
 **Branch**: `chore/rails-8.1-upgrade`
 
 Alteracoes:
+
 - **Rails 8.0.4 → 8.1.3.1 e Brakeman 8.0.6**: o check Security Scan falhava por EOLRails
   (Brakeman 8.0.2 marcava a serie 8.0 como EOL em 2026-10-07). Lock: Rails e 12 componentes,
   `action_text-trix` entra, `benchmark` sai, rack fica em 2.2.22.
@@ -176,13 +177,32 @@ Alteracoes:
   sem ordem em model sem chave levantam erro, render_tracker `:ruby`, hidden fields sem autocomplete.
 - **Guard de somente-leitura em `lock!`** replicado no patch `active_record_lock_issue_3664.rb`.
 - **`allow_other_host`** passado de fato no callback de credenciais externas.
+- **`dump_schema_after_migration = false`** em `config/environments/test.rb` e `development.rb`: o
+  dumper de schema do Rails 8.1 passou a ordenar as colunas em ordem alfabetica; como o `db:migrate`
+  do `zammad:db:reset` carrega o `db/schema.rb` quando ele existe, em vez de rodar as migrations, o
+  banco de teste ficava com `column_names` fora da ordem de criacao. Com o dump desligado nesses dois
+  ambientes, o banco de teste passa a ser construido por migrations e o `db/schema.rb` continua ausente
+  e gitignored.
 - **Specs de migration instanciam a classe viva** (`spec/support/db_migration.rb`): sem `db/schema.rb`
   o `zammad:db:reset` do `before(:suite)` roda as migrations dentro do processo do RSpec e o
   `MigrationProxy` troca cada classe, deixando o `described_class` do arquivo de spec obsoleto.
+- **Warning novo do `benchmark` no boot**: a `activesupport` 8.1 deixou de depender de `benchmark`
+  (por isso a gem saiu do lock, bullet acima), mas `delayed_job` continua fazendo `require 'benchmark'`.
+  Com Ruby 3.4 isso imprime, em todo boot (RSpec, Minitest e o worker do `delayed_job` em producao), o
+  aviso de que `benchmark` deixara de ser gem padrao a partir do Ruby 4.0.0. Decisao pendente com o
+  usuario no momento da PR: adicionar `gem 'benchmark'` no `Gemfile` (reabre a allowlist) ou aceitar o
+  warning por ora.
 - Spec e plano: `docs/plans/2026-09-08-atualizar-rails-design.md`, `docs/plans/2026-09-08-atualizar-rails.md`.
 
 Arquivos modificados:
-- `Gemfile`, `Gemfile.lock`, `config/application.rb`
-- `config/initializers/active_record_lock_issue_3664.rb`
-- `app/controllers/external_credentials_controller.rb`
-- specs novos em `spec/config`, `spec/controllers`, `spec/requests`, `spec/lib/sessions`
+
+- Config: `Gemfile`, `Gemfile.lock`, `config/application.rb`, `config/brakeman.ignore`,
+  `config/environments/development.rb`, `config/environments/test.rb`,
+  `config/initializers/active_record_lock_issue_3664.rb`
+- App: `app/controllers/external_credentials_controller.rb`
+- Specs novos: `spec/config/framework_defaults_spec.rb`,
+  `spec/controllers/framework_defaults_redirect_spec.rb`, `spec/lib/sessions/store_roundtrip_spec.rb`,
+  `spec/requests/framework_defaults_json_spec.rb`, `spec/requests/framework_query_string_spec.rb`
+- Specs modificados: `spec/lib/active_record/locking/pessimistic_spec.rb`,
+  `spec/models/ticket/satisfaction_rating_spec.rb`, `spec/requests/external_credentials_spec.rb`,
+  `spec/requests/knowledge_base_public/custom_path_spec.rb`, `spec/support/db_migration.rb`
