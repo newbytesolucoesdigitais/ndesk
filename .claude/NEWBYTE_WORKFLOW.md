@@ -162,3 +162,27 @@ Arquivos modificados:
 - `app/assets/stylesheets/zammad.scss`
 - `i18n/zammad.pt-br.po`
 - `public/assets/tests/qunit/taskbar_collections.js` (novo)
+
+### 2026-09-08 - branch chore/rails-8.1-upgrade (NDESK-45)
+
+**Branch**: `chore/rails-8.1-upgrade`
+
+Alteracoes:
+- **Rails 8.0.4 → 8.1.3.1 e Brakeman 8.0.6**: o check Security Scan falhava por EOLRails
+  (Brakeman 8.0.2 marcava a serie 8.0 como EOL em 2026-10-07). Lock: Rails e 12 componentes,
+  `action_text-trix` entra, `benchmark` sai, rack fica em 2.2.22.
+- **`config.load_defaults 8.1`**: sete ajustes com um teste cada (`spec/config/framework_defaults_spec.rb`):
+  yjit so em producao, JSON sem escape de HTML/U+2028/U+2029, redirect relativo levanta erro, finders
+  sem ordem em model sem chave levantam erro, render_tracker `:ruby`, hidden fields sem autocomplete.
+- **Guard de somente-leitura em `lock!`** replicado no patch `active_record_lock_issue_3664.rb`.
+- **`allow_other_host`** passado de fato no callback de credenciais externas.
+- **Specs de migration instanciam a classe viva** (`spec/support/db_migration.rb`): sem `db/schema.rb`
+  o `zammad:db:reset` do `before(:suite)` roda as migrations dentro do processo do RSpec e o
+  `MigrationProxy` troca cada classe, deixando o `described_class` do arquivo de spec obsoleto.
+- Spec e plano: `docs/plans/2026-09-08-atualizar-rails-design.md`, `docs/plans/2026-09-08-atualizar-rails.md`.
+
+Arquivos modificados:
+- `Gemfile`, `Gemfile.lock`, `config/application.rb`
+- `config/initializers/active_record_lock_issue_3664.rb`
+- `app/controllers/external_credentials_controller.rb`
+- specs novos em `spec/config`, `spec/controllers`, `spec/requests`, `spec/lib/sessions`
