@@ -182,7 +182,11 @@ Alteracoes:
   do `zammad:db:reset` carrega o `db/schema.rb` quando ele existe, em vez de rodar as migrations, o
   banco de teste ficava com `column_names` fora da ordem de criacao. Com o dump desligado nesses dois
   ambientes, o banco de teste passa a ser construido por migrations e o `db/schema.rb` continua ausente
-  e gitignored.
+  e gitignored. Depois de fazer checkout desta branch, rode `rm -f db/schema.rb`: um dump residual
+  (de um checkout anterior que rodou `db:migrate` com o dump ligado) continua sendo carregado pelo
+  `zammad:db:reset`/`zammad:db:init` via `DatabaseTasks.initialize_database` e reproduz em silencio a
+  ordem alfabetica. O `zammad:bootstrap:reset` (`lib/tasks/zammad/bootstrap/reset.rake:14`) ainda grava
+  um `db/schema.rb` vazio logo apos o truncate, o que e inofensivo.
 - **Specs de migration instanciam a classe viva** (`spec/support/db_migration.rb`): sem `db/schema.rb`
   o `zammad:db:reset` do `before(:suite)` roda as migrations dentro do processo do RSpec e o
   `MigrationProxy` troca cada classe, deixando o `described_class` do arquivo de spec obsoleto.

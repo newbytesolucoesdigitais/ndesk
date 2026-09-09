@@ -43,9 +43,9 @@ executa lê os dois.
 - Arquivos Ruby novos começam com
   `# Copyright (C) 2012-2026 Zammad Foundation, https://zammad-foundation.org/`.
 - Rubocop limpo nos arquivos tocados; `pnpm lint:md` limpo nos `.md` tocados.
-- Temporários só em `$S`, onde
-  `S=/private/tmp/claude-501/-Users-cauapuppim-newbyte-ndesk/28023456-199a-445e-94b0-522f9664502e/scratchpad`
-  (redefinir em cada bloco).
+- Temporários só em `$S`, o scratchpad da sessão corrente (redefinir `S=` em cada bloco). Os caminhos
+  `S=…` que aparecem nos blocos das Tasks 0–3 são registro histórico da execução de 2026-09-08 e não
+  valem para novas sessões.
 - A PR só é aberta quando o usuário pedir (fluxo `dev-execution`); QA e Release seguem as skills
   `review-qa` e `release`, usando as Tasks 4 e 5 como roteiro.
 
@@ -966,7 +966,8 @@ Incluir na descrição:
 ```bash
 cd /Users/cauapuppim/newbyte/ndesk
 gh pr create -R newbytesolucoesdigitais/ndesk --base newbyte-stable --head chore/rails-8.1-upgrade \
-  --title "chore: Rails 8.1.3.1, load_defaults 8.1 e Brakeman 8.0.6 (NDESK-45)" --body-file "$S/pr-body.md"
+  --title "chore: Rails 8.1.3.1, load_defaults 8.1 e Brakeman 8.0.6 (NDESK-45)" \
+  --body-file .superpowers/sdd/2026-09-08-atualizar-rails/artifacts/pr-body.md
 # fallback REST se o GraphQL falhar: gh api repos/newbytesolucoesdigitais/ndesk/pulls -f title=... -f head=newbytesolucoesdigitais:chore/rails-8.1-upgrade -f base=newbyte-stable -f body=...
 ```
 
