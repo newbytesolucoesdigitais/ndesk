@@ -22,7 +22,13 @@ module DbMigrationHelper
   #
   # @return [nil]
   def migrate(direction = :up)
-    instance = described_class.new
+    # Sem `db/schema.rb` para semear o banco vazio (NDESK-45: o dump ficou desligado em
+    # test/development), o `zammad:db:reset` do `before(:suite)` roda as migrations de
+    # verdade. O ActiveRecord::MigrationProxy#load_migration faz `remove_const` + `load`
+    # em cada uma, então a classe capturada por `described_class` quando o arquivo de spec
+    # foi carregado vira um objeto morto: um `stub_const` pelo nome atinge a classe viva e
+    # não a instanciada aqui. Resolver pelo nome mantém as duas pontas na mesma classe.
+    instance = described_class.name.constantize.new
     yield(instance) if block_given?
 
     instance.suppress_messages do
