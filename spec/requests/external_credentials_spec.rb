@@ -86,6 +86,60 @@ RSpec.describe 'External Credentials', type: :request do
       end
     end
 
+    describe 'redirect targets (Rails 8.1: path-relative guard + allow_other_host)' do
+      before { Setting.set('http_type', 'https') }
+
+      let(:fqdn) { Setting.get('fqdn') }
+
+      describe '#link_account' do
+        %w[google microsoft365 microsoft_graph exchange].each do |provider|
+          it "redirects #{provider} to the absolute authorize_url of the provider" do
+            allow(ExternalCredential).to receive(:request_account_to_link)
+              .and_return({ request_token: 'token', authorize_url: "https://login.#{provider}.example/authorize?state=1" })
+
+            get "/api/v1/external_credentials/#{provider}/link_account"
+
+            expect(response).to have_http_status(:found)
+            expect(response.headers['Location']).to eq("https://login.#{provider}.example/authorize?state=1")
+          end
+        end
+      end
+
+      describe '#callback' do
+        %w[microsoft365 microsoft_graph exchange].each do |provider|
+          it "redirects #{provider} to an absolute error URL on another host (String from the backend)" do
+            allow(ExternalCredential).to receive(:link_account)
+              .and_return("https://error.#{provider}.example/#channels/#{provider}/error/AADSTS")
+
+            get "/api/v1/external_credentials/#{provider}/callback"
+
+            expect(response).to have_http_status(:found)
+            expect(response.headers['Location']).to eq("https://error.#{provider}.example/#channels/#{provider}/error/AADSTS")
+          end
+        end
+
+        it 'redirects microsoft365 to an absolute error URL on its own host (String from the backend)' do
+          allow(ExternalCredential).to receive(:link_account)
+            .and_return("https://#{fqdn}/#channels/microsoft365/error/AADSTS65004")
+
+          get '/api/v1/external_credentials/microsoft365/callback'
+
+          expect(response).to have_http_status(:found)
+          expect(response.headers['Location']).to eq("https://#{fqdn}/#channels/microsoft365/error/AADSTS65004")
+        end
+
+        it 'redirects google to the absolute app URL of the created channel' do
+          channel = create(:google_channel)
+          allow(ExternalCredential).to receive(:link_account).and_return(channel)
+
+          get '/api/v1/external_credentials/google/callback'
+
+          expect(response).to have_http_status(:found)
+          expect(response.headers['Location']).to eq("https://#{fqdn}/#channels/google/#{channel.id}")
+        end
+      end
+    end
+
     context 'for Facebook' do
       let(:invalid_credentials) do
         { application_id: 123, application_secret: 123 }

@@ -15,6 +15,12 @@ module ActiveRecord::Locking::Pessimistic
     alias orig_lock! lock!
 
     def lock!(lock = true) # rubocop:disable Style/OptionalBooleanParameter
+      # Rails 8.1 guard (activerecord/lib/active_record/locking/pessimistic.rb):
+      # it must apply to the branch below too, which returns without calling orig_lock!.
+      if self.class.current_preventing_writes
+        raise ActiveRecord::ReadOnlyError, 'Lock query attempted while in readonly mode'
+      end
+
       if persisted? && has_changes_to_save?
 
         # We will skip the exception in case if the changes only contain columns which are store-type and have idential value.

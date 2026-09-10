@@ -61,6 +61,31 @@ RSpec.describe 'User endpoint', authenticated_as: false, type: :request do
         expect(response).to have_http_status(:too_many_requests)
       end
 
+      it 'blocks due to username throttling when the query string hides the username behind a semicolon (Rails 8.1 parser)' do
+        4.times do |index|
+          post "#{api_v1_users_admin_password_auth_path}?username=#{CGI.escape(static_username)}&x=1;username=other#{index}", headers: { 'X-Forwarded-For': Faker::Internet.ip_v4_address }
+        end
+
+        expect(response).to have_http_status(:too_many_requests)
+      end
+
+      it 'blocks due to username throttling for JSON requests (multiple IPs)' do
+        4.times do
+          post api_v1_users_admin_password_auth_path, params: { username: static_username }, as: :json, headers: { 'X-Forwarded-For': Faker::Internet.ip_v4_address }
+        end
+
+        expect(response).to have_http_status(:too_many_requests)
+      end
+
+      it 'does not throttle JSON requests of different usernames (per-username key, not a shared empty key)' do
+        4.times do
+          post api_v1_users_admin_password_auth_path, params: { username: create(:admin).login }, as: :json, headers: { 'X-Forwarded-For': Faker::Internet.ip_v4_address }
+        end
+
+        # Password login is enabled by default, so the controller answers 422: the request was not throttled.
+        expect(response).to have_http_status(:unprocessable_entity)
+      end
+
       it 'blocks due to source IP address throttling (multiple usernames)' do
         4.times do
           # Ensure throttling even on modified path.

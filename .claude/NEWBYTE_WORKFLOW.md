@@ -162,3 +162,61 @@ Arquivos modificados:
 - `app/assets/stylesheets/zammad.scss`
 - `i18n/zammad.pt-br.po`
 - `public/assets/tests/qunit/taskbar_collections.js` (novo)
+
+### 2026-09-08 - branch chore/rails-8.1-upgrade (NDESK-45)
+
+**Branch**: `chore/rails-8.1-upgrade`
+
+Alteracoes:
+
+- **Rails 8.0.4 → 8.1.3.1 e Brakeman 8.0.6**: o check Security Scan falhava por EOLRails
+  (Brakeman 8.0.2 marcava a serie 8.0 como EOL em 2026-10-07). Lock: Rails e 12 componentes,
+  `action_text-trix` entra, `benchmark` sai, rack fica em 2.2.22.
+- **`config.load_defaults 8.1`**: sete ajustes com um teste cada (`spec/config/framework_defaults_spec.rb`):
+  yjit so em producao, JSON sem escape de HTML/U+2028/U+2029, redirect relativo levanta erro, finders
+  sem ordem em model sem chave levantam erro, render_tracker `:ruby`, hidden fields sem autocomplete.
+- **Guard de somente-leitura em `lock!`** replicado no patch `active_record_lock_issue_3664.rb`.
+- **`allow_other_host`** passado de fato no callback de credenciais externas.
+- **`dump_schema_after_migration = false`** em `config/environments/test.rb` e `development.rb`: o
+  dumper de schema do Rails 8.1 passou a ordenar as colunas em ordem alfabetica; como o `db:migrate`
+  do `zammad:db:reset` carrega o `db/schema.rb` quando ele existe, em vez de rodar as migrations, o
+  banco de teste ficava com `column_names` fora da ordem de criacao. Com o dump desligado nesses dois
+  ambientes, o banco de teste passa a ser construido por migrations e o `db/schema.rb` continua ausente
+  e gitignored. Depois de fazer checkout desta branch, rode `rm -f db/schema.rb`: um dump residual
+  (de um checkout anterior que rodou `db:migrate` com o dump ligado) continua sendo carregado pelo
+  `zammad:db:reset`/`zammad:db:init` via `DatabaseTasks.initialize_database` e reproduz em silencio a
+  ordem alfabetica. O `zammad:bootstrap:reset` (`lib/tasks/zammad/bootstrap/reset.rake:14`) ainda grava
+  um `db/schema.rb` vazio logo apos o truncate, o que e inofensivo.
+- **Specs de migration instanciam a classe viva** (`spec/support/db_migration.rb`): sem `db/schema.rb`
+  o `zammad:db:reset` do `before(:suite)` roda as migrations dentro do processo do RSpec e o
+  `MigrationProxy` troca cada classe, deixando o `described_class` do arquivo de spec obsoleto.
+- **`benchmark` declarada de volta no `Gemfile`**: a `activesupport` 8.1 deixou de depender de
+  `benchmark` (por isso a gem saiu do lock, bullet acima), mas `delayed_job` (`lib/delayed/worker.rb:10`)
+  faz `require 'benchmark'` e `lib/background_services/service/base_delayed_jobs.rb:36` chama
+  `Benchmark.realtime` sem dar require, o que em todo boot (RSpec, Minitest e o worker do `delayed_job`
+  em producao) imprimia o aviso de que `benchmark` deixara de ser gem padrao a partir do Ruby 4.0.0.
+  Este commit declara `gem 'benchmark'` no `Gemfile` (lock resolve para `0.5.0`) e o warning de boot
+  desaparece.
+- **Throttle do rack-attack lia os parametros do Rack, nao os do Rails** (achado D20 do QA da PR #26): o
+  discriminador do rate limit usava `req.params` do Rack 2.2, que ainda separa a query string em `;`,
+  enquanto o controller le `params` do ActionDispatch 8.1, que nao separa mais (`SEMICOLON_COMPAT` removido).
+  Um `&x=1;username=lixoN` trocava a chave do throttle a cada requisicao e derrubava o limite por usuario em
+  `password_reset`, `email_verify_send` e `admin_password_auth`. O campo passa a ser lido via
+  `ActionDispatch::Request` sobre o `env` (query string e corpo, JSON incluido), o que tambem corrige a chave
+  vazia `""` que todo POST JSON compartilhava. Specs nos tres endpoints.
+- Spec e plano: `docs/plans/2026-09-08-atualizar-rails-design.md`, `docs/plans/2026-09-08-atualizar-rails.md`.
+
+Arquivos modificados:
+
+- Config: `Gemfile`, `Gemfile.lock`, `config/application.rb`, `config/brakeman.ignore`,
+  `config/environments/development.rb`, `config/environments/test.rb`,
+  `config/initializers/active_record_lock_issue_3664.rb`, `config/initializers/rack_attack.rb`
+- App: `app/controllers/external_credentials_controller.rb`
+- Specs novos: `spec/config/framework_defaults_spec.rb`,
+  `spec/controllers/framework_defaults_redirect_spec.rb`, `spec/lib/sessions/store_roundtrip_spec.rb`,
+  `spec/requests/framework_defaults_json_spec.rb`, `spec/requests/framework_query_string_spec.rb`
+- Specs modificados: `spec/lib/active_record/locking/pessimistic_spec.rb`,
+  `spec/models/ticket/satisfaction_rating_spec.rb`, `spec/requests/external_credentials_spec.rb`,
+  `spec/requests/knowledge_base_public/custom_path_spec.rb`, `spec/support/db_migration.rb`,
+  `spec/requests/user/password_reset_spec.rb`, `spec/requests/user/email_verify_send_spec.rb`,
+  `spec/requests/user/admin_password_auth_spec.rb`

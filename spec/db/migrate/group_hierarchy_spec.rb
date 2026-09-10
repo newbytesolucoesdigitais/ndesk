@@ -35,7 +35,7 @@ RSpec.describe GroupHierarchy, db_strategy: :reset, type: :db_migration do
 
       before do
         group
-        described_class.new.migrate_group_name
+        migration_class.new.migrate_group_name
       end
 
       it 'does not migrate name' do
@@ -49,7 +49,7 @@ RSpec.describe GroupHierarchy, db_strategy: :reset, type: :db_migration do
 
         before do
           group.update_columns(name: 'A::B')
-          described_class.new.migrate_group_name
+          migration_class.new.migrate_group_name
         end
 
         it 'migrates name with an alternative delimiter' do
@@ -64,7 +64,7 @@ RSpec.describe GroupHierarchy, db_strategy: :reset, type: :db_migration do
 
         before do
           group1.update_columns(name: 'A::B::C') && group2 && group3
-          described_class.new.migrate_group_name
+          migration_class.new.migrate_group_name
         end
 
         it 'migrates name with an longer alternative delimiter' do

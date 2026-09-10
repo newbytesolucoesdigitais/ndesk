@@ -4,7 +4,7 @@ source 'https://rubygems.org'
 
 # core - base
 ruby '3.4.8'
-gem 'rails', '~> 8.0.0'
+gem 'rails', '~> 8.1.0'
 gem 'rake'
 
 # core - rails additions
@@ -24,6 +24,9 @@ gem 'pg', '~> 1.5', '>= 1.5.4', group: :postgres
 gem 'daemons'
 gem 'delayed_job', git: 'https://github.com/zammad-deps/delayed_job', branch: 'threadsafe'
 gem 'delayed_job_active_record', git: 'https://github.com/zammad-deps/delayed_job_active_record', branch: 'update-limit-143'
+
+# benchmark leaves the Ruby default gems in 4.0; required by delayed_job and lib/background_services
+gem 'benchmark'
 
 # core - command line interface
 gem 'thor'

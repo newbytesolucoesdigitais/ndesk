@@ -44,7 +44,7 @@ class ExternalCredentialsController < ApplicationController
   def callback
     provider = params[:provider].downcase
     channel = ExternalCredential.link_account(provider, session[:request_token], link_params)
-    return redirect_to(channel), allow_other_host: true if channel.instance_of?(String)
+    return redirect_to(channel, allow_other_host: true) if channel.instance_of?(String)
 
     session[:request_token] = nil
     session[:channel_id] = nil

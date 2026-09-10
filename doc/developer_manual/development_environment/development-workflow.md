@@ -11,6 +11,10 @@ Zammad provides several Rake tasks to streamline development and setup.
 - `rails db:drop zammad:db:init` – Reset an existing development database (without running `auto_wizard`)
 - `rails db:migrate` – Run any pending Rails migrations
 
+Run `rm -f db/schema.rb` after switching branches: the schema dump is disabled in development and test,
+but a leftover (git-ignored) `db/schema.rb` is still loaded by `zammad:db:init`/`zammad:db:reset`
+instead of running the migrations.
+
 ### Package Tasks
 
 - `rails zammad:package:migrate` – Run any pending package migrations
