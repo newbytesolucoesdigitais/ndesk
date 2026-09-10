@@ -22,6 +22,8 @@ THROTTLE_PUBLIC_ENDPOINTS = [
 #   (query string and body, JSON included), so that the throttle key is exactly
 #   what the controller will see.
 THROTTLE_FIELD_VALUE = lambda do |req, field|
+  # At middleware time path_parameters is still empty, so a controller's skip_parameter_encoding
+  #   (nothing in this app declares it today) would not apply to this parse.
   ActionDispatch::Request.new(req.env).params[field]
 rescue ActionController::BadRequest, ActionDispatch::Http::Parameters::ParseError
   # Malformed request: Rails answers with 400 before any controller runs, keep the Rack value as the key.
