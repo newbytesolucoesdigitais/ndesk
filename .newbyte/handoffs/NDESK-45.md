@@ -1,6 +1,6 @@
 # Handoff — NDESK-45 — [NDesk] Atualizar Rails
 
-> Gerado em 2026-09-09 15:10. Consumido pelo fluxo Desenvolvimento → Handoff do
+> Gerado em 2026-09-10 16:40 (atualizado após o 1º ciclo de QA). Consumido pelo fluxo Desenvolvimento → Handoff do
 > plugin New Byte. Fonte da verdade sobre estado da task: o Plane.
 
 ## Task
@@ -9,7 +9,7 @@
 - Projeto: NDesk
 
 ## Fase atual
-QA — Execution concluída em 2026-09-09. PR #26 aberta
+QA — Execution concluída em 2026-09-09; 1º ciclo de QA em 2026-09-10 (um aprovado, um reprovado pelo D20, corrigido em `7e2a9225a5`+`2fa2febf28`; aguardando re-QA). PR #26 aberta
 (https://github.com/newbytesolucoesdigitais/ndesk/pull/26, `chore/rails-8.1-upgrade` → `newbyte-stable`).
 Retomar em: `/newbyte:newbyte` → Review + QA → NDESK-45 / PR #26 (skill `review-qa`), usando a Task 4 do
 plano `docs/plans/2026-09-08-atualizar-rails.md` como roteiro; Release depois pela skill `release` (Task 5).
@@ -36,6 +36,10 @@ plano `docs/plans/2026-09-08-atualizar-rails.md` como roteiro; Release depois pe
   `assets:precompile` OK; RSpec shards 1–4 `13231 ex / 31 falhas` em 4 arquivos de ambiente (abaixo); shard 5
   `358/0`; Minitest `166/0`; specs do bump `953/0`; Rubocop limpo nos arquivos tocados; markdownlint sem erro
   novo. `user_agent_spec` confirmado `49/0` com a porta 3000 livre.
+- QA 2026-09-10: D20 (bypass do throttle por usuário via `;` — Rack 2.2 separa, ActionDispatch 8.1 não) confirmado e
+  corrigido em `7e2a9225a5` (discriminador lê o campo via `ActionDispatch::Request` no `env`; também corrige a chave
+  `""` dos POSTs JSON), specs `2fa2febf28`, changelog `fb8dd357ce`; review independente aprovada. Ressalvas D1/D6/D30/D31
+  validadas sem alteração (D1 = warning novo do Active Storage 8.1, app não usa; opcional `variant_processor = :disabled`).
 - GitHub: a ruleset "Restrict branch management" do ndesk tinha como único bypass um time apagado; com
   autorização do usuário, o bypass passou ao time `engenharia` (regras inalteradas).
 
@@ -52,7 +56,7 @@ plano `docs/plans/2026-09-08-atualizar-rails.md` como roteiro; Release depois pe
 - Handoff é rastreado no git de propósito (viaja para quem pegar o QA); `.newbyte/qa/` não é.
 
 ## Próximos passos
-1. QA (skill `review-qa`): CI da PR #26 (`ci-test.yml`, 12 jobs) — Security Scan com exit 0 e sem EOLRails;
+1. Re-QA do D20 pelo reprovador sobre o head novo (rate limit por `;` e JSON), depois o resto: QA (skill `review-qa`): CI da PR #26 (`ci-test.yml`, 12 jobs) — Security Scan com exit 0 e sem EOLRails;
    conferir nos shards de RSpec os 4 arquivos de ambiente acima e o tempo do shard 5 (484 migrations por processo).
 2. Preview `ndesk-pr-26.staging-preview.newbyte.net.br` — smoke da seção "Como testar" da PR: login/logout e
    redirect pós-login; ticket com `<>&"'` e U+2028/U+2029 (zoom, overview, busca/Elasticsearch); taskbar; KB
