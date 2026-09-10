@@ -40,6 +40,14 @@ RSpec.describe 'User endpoint', authenticated_as: false, type: :request do
       expect(response).to have_http_status(:too_many_requests)
     end
 
+    it 'blocks due to email throttling when the query string hides the email behind a semicolon (Rails 8.1 parser)' do
+      4.times do |index|
+        post "#{api_v1_users_email_verify_send_path}?email=#{static_email}&x=1;email=other#{index}@example.com", headers: { 'X-Forwarded-For': Faker::Internet.ip_v4_address }
+      end
+
+      expect(response).to have_http_status(:too_many_requests)
+    end
+
     it 'blocks due to source IP address throttling (multiple emails)' do
       4.times do
         # Ensure throttling even on modified path.

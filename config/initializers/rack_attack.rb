@@ -15,11 +15,24 @@ THROTTLE_PUBLIC_ENDPOINTS = [
   },
 ].freeze
 
+# Rack 2.2 still splits query strings on ';' while Rails 8.1 does not (the
+#   SEMICOLON_COMPAT branch was removed), and Rack never parses JSON bodies.
+#   Because of that Rack::Request#params and the controller's params can
+#   disagree about the very same request. Read the field through ActionDispatch
+#   (query string and body, JSON included), so that the throttle key is exactly
+#   what the controller will see.
+THROTTLE_FIELD_VALUE = lambda do |req, field|
+  ActionDispatch::Request.new(req.env).params[field]
+rescue ActionController::BadRequest, ActionDispatch::Http::Parameters::ParseError
+  # Malformed request: Rails answers with 400 before any controller runs, keep the Rack value as the key.
+  req.params[field]
+end
+
 THROTTLE_PUBLIC_ENDPOINTS.each do |config|
   Rack::Attack.throttle("limit #{config[:url]} requests per #{config[:field]}", limit: 3, period: 1.minute.to_i) do |req|
     if req.path.start_with?(config[:url]) && req.post?
       # Normalize to protect against rate limit bypasses.
-      req.params[config[:field]].to_s.downcase.gsub(%r{\s+}, '')
+      THROTTLE_FIELD_VALUE.call(req, config[:field]).to_s.downcase.gsub(%r{\s+}, '')
     end
   end
   Rack::Attack.throttle("limit #{config[:url]} requests per source IP address", limit: 3, period: 1.minute.to_i) do |req|

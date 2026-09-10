@@ -61,6 +61,14 @@ RSpec.describe 'User endpoint', authenticated_as: false, type: :request do
         expect(response).to have_http_status(:too_many_requests)
       end
 
+      it 'blocks due to username throttling when the query string hides the username behind a semicolon (Rails 8.1 parser)' do
+        4.times do |index|
+          post "#{api_v1_users_admin_password_auth_path}?username=#{static_username}&x=1;username=other#{index}", headers: { 'X-Forwarded-For': Faker::Internet.ip_v4_address }
+        end
+
+        expect(response).to have_http_status(:too_many_requests)
+      end
+
       it 'blocks due to source IP address throttling (multiple usernames)' do
         4.times do
           # Ensure throttling even on modified path.
