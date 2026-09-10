@@ -197,17 +197,26 @@ Alteracoes:
   em producao) imprimia o aviso de que `benchmark` deixara de ser gem padrao a partir do Ruby 4.0.0.
   Este commit declara `gem 'benchmark'` no `Gemfile` (lock resolve para `0.5.0`) e o warning de boot
   desaparece.
+- **Throttle do rack-attack lia os parametros do Rack, nao os do Rails** (achado D20 do QA da PR #26): o
+  discriminador do rate limit usava `req.params` do Rack 2.2, que ainda separa a query string em `;`,
+  enquanto o controller le `params` do ActionDispatch 8.1, que nao separa mais (`SEMICOLON_COMPAT` removido).
+  Um `&x=1;username=lixoN` trocava a chave do throttle a cada requisicao e derrubava o limite por usuario em
+  `password_reset`, `email_verify_send` e `admin_password_auth`. O campo passa a ser lido via
+  `ActionDispatch::Request` sobre o `env` (query string e corpo, JSON incluido), o que tambem corrige a chave
+  vazia `""` que todo POST JSON compartilhava. Specs nos tres endpoints.
 - Spec e plano: `docs/plans/2026-09-08-atualizar-rails-design.md`, `docs/plans/2026-09-08-atualizar-rails.md`.
 
 Arquivos modificados:
 
 - Config: `Gemfile`, `Gemfile.lock`, `config/application.rb`, `config/brakeman.ignore`,
   `config/environments/development.rb`, `config/environments/test.rb`,
-  `config/initializers/active_record_lock_issue_3664.rb`
+  `config/initializers/active_record_lock_issue_3664.rb`, `config/initializers/rack_attack.rb`
 - App: `app/controllers/external_credentials_controller.rb`
 - Specs novos: `spec/config/framework_defaults_spec.rb`,
   `spec/controllers/framework_defaults_redirect_spec.rb`, `spec/lib/sessions/store_roundtrip_spec.rb`,
   `spec/requests/framework_defaults_json_spec.rb`, `spec/requests/framework_query_string_spec.rb`
 - Specs modificados: `spec/lib/active_record/locking/pessimistic_spec.rb`,
   `spec/models/ticket/satisfaction_rating_spec.rb`, `spec/requests/external_credentials_spec.rb`,
-  `spec/requests/knowledge_base_public/custom_path_spec.rb`, `spec/support/db_migration.rb`
+  `spec/requests/knowledge_base_public/custom_path_spec.rb`, `spec/support/db_migration.rb`,
+  `spec/requests/user/password_reset_spec.rb`, `spec/requests/user/email_verify_send_spec.rb`,
+  `spec/requests/user/admin_password_auth_spec.rb`
