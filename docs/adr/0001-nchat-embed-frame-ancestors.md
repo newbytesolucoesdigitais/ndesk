@@ -15,6 +15,7 @@ O NDesk passa a declarar, na CSP global (`config/initializers/content_security_p
 de download de anexos (`app/controllers/application_controller/has_download.rb`). Nenhuma outra diretiva
 muda. `spec/requests/frame_ancestors_spec.rb` pina a allowlist exata, a ausência do XFO e o baseline.
 Análise completa: `docs/plans/2026-09-16-nchat-embed-frame-ancestors-design.md` (NDESK-60).
+Decisões e riscos aceitos em 2026-09-16 por Cauã Puppim Pereira Mendes (responsável pela NDESK-60).
 
 ## Alternativas rejeitadas
 

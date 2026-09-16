@@ -801,6 +801,13 @@ Em Chrome, Firefox e Safari, dentro do Aplicativo, registrar ✅/❌ por navegad
 7. Back do navegador: registrar o comportamento (percorre telas do NDesk; limitação aceita);
 8. enviar artigo sem anexo quando o texto menciona anexo: o `confirm()` aparece? Registrar por navegador;
 9. imprimir/baixar um anexo: funciona (sem `sandbox`).
+10. `/desktop` dentro do embed (um navegador basta): abre e navega (o mecanismo é o mesmo middleware; é
+    confirmação de que a D1 cobre a UI nova);
+11. anexos dentro do embed: abrir uma imagem inline a partir de um artigo abre em nova aba e renderiza; se
+    alguém navegar o próprio iframe para uma URL de `ticket_attachment`, o navegador recusa (cadeia
+    NDesk → NChat não casa com `'self'`) — comportamento esperado da D8, registrar;
+12. sessão reaproveitada com "Bloquear cookies de terceiros" ativo no Chrome e ETP estrito no Firefox: os três
+    hosts são same-site, então o cookie deve continuar sendo enviado (fecha a premissa §5.6 do spec).
 
 Gravação de áudio e botão de copiar **só** passam depois do `allow=` do NChat (NCHATV4-271): registrar
 como "exige mudança no NChat", não como falha desta PR. Injeção de iframe por DevTools em
@@ -894,6 +901,10 @@ GATE
 ```
 
 Expected: `RELEASE_HEADERS_OK`.
+
+Se o gate falhar com um segundo `content-security-policy` ou um `x-frame-options` que o Rails não emite, a
+borda (Transform Rules do Cloudflare, invisível pelo repo) está reinjetando header: corrigir lá antes de
+fechar o Release.
 
 - [ ] **Step 3: Apontar os Aplicativos para produção** — nos dois deploys do NChat, trocar a URL dos
   Aplicativos criados na Task 5 para `https://ndesk.newbyte.net.br/` (ou criar os definitivos e apagar os
