@@ -10,7 +10,8 @@ RSpec.configure do |config|
       # on disk. In a fresh checkout (CI) there was none, so `app.assets_manifest` and the ActionView
       # copy are empty. The rake task above writes a new manifest through its own Sprockets::Manifest
       # instance and never updates those objects, and every stylesheet_link_tag/javascript_include_tag
-      # then raises AssetNotPrecompiledError (rendered as HTTP 500). Reload from the file just written.
+      # then raises Sprockets::Rails::Helper::AssetNotFound (rendered as HTTP 500). Reload from the file
+      # just written.
       Rails.application.assets_manifest = Sprockets::Railtie.build_manifest(Rails.application)
       ActionView::Base.assets_manifest = Rails.application.assets_manifest
     end

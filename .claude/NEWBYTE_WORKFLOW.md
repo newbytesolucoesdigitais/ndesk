@@ -236,7 +236,8 @@ Alteracoes:
   embed) na ADR `docs/adr/0001-nchat-embed-frame-ancestors.md`; follow-up no NChat: NCHATV4-271.
 - **Hook de assets das specs**: `spec/support/compile_assets.rb` recarrega o manifesto do Sprockets depois de
   `assets:precompile`. Num processo de CI (checkout sem manifesto no boot) toda página Sprockets devolvia 500
-  (`AssetNotPrecompiledError`) e nenhuma spec verificava o status da raiz até a spec de `frame-ancestors`.
+  (`Sprockets::Rails::Helper::AssetNotFound`) e nenhuma spec verificava o status da raiz até a spec de
+  `frame-ancestors`.
 
 Arquivos modificados:
 
