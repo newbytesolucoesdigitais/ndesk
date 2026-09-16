@@ -50,6 +50,10 @@ Rails.application.config.content_security_policy do |policy| # rubocop:disable M
   policy.frame_src   'www.youtube.com', 'player.vimeo.com'
   policy.media_src   :self, :blob
 
+  # NDESK-60: os Aplicativos do NChat emolduram o NDesk em iframe. Origem exata: https, sem wildcard.
+  # Allowlist e trade-offs em docs/adr/0001-nchat-embed-frame-ancestors.md.
+  policy.frame_ancestors :self, 'https://chat.newbyte.net.br', 'https://nchat.newbyte.net.br'
+
   if Rails.env.development?
     websocket_uris = proc do
       [
