@@ -8,7 +8,7 @@ require 'rails_helper'
 RSpec.describe 'Frame ancestors allowlist (NDESK-60)', type: :request do
   # "a b; c d" → { 'a' => 'b', 'c' => 'd' }. Falha em diretiva duplicada em vez de sobrescrever.
   def csp_directives(header)
-    header.split(';').map(&:strip).reject(&:empty?).each_with_object({}) do |directive, map|
+    header.to_s.split(';').map(&:strip).reject(&:empty?).each_with_object({}) do |directive, map|
       name, *sources = directive.split(%r{\s+})
       raise "diretiva CSP duplicada: #{name}" if map.key?(name)
 
@@ -31,15 +31,20 @@ RSpec.describe 'Frame ancestors allowlist (NDESK-60)', type: :request do
     it 'libera exatamente self e as duas origens do NChat, sem X-Frame-Options', :aggregate_failures do
       expect(response).to have_http_status(:ok)
       expect(response.media_type).to eq('text/html')
+      expect(response.headers['Content-Security-Policy']).to be_present
       expect(csp_directives(response.headers['Content-Security-Policy'])['frame-ancestors']).to eq(allowlist)
       expect(response.headers['X-Frame-Options']).to be_nil
     end
 
-    it 'mantém as demais diretivas no baseline do ambiente de teste' do
-      # Produção acrescenta "http_type://fqdn" ao base-uri; development é report-only e
-      # acrescenta http://… e ws://… ao connect-src (initializer). O nonce muda por resposta.
+    it 'mantém as demais diretivas no baseline do ambiente de teste', :aggregate_failures do
+      # Produção acrescenta "http_type://fqdn" ao base-uri; development é report-only, acrescenta
+      # 'unsafe-inline' ao script-src e http://… e ws://… ao connect-src (initializer). O nonce muda por resposta.
+      expect(response.headers['Content-Security-Policy']).to be_present
       directives = csp_directives(response.headers['Content-Security-Policy'])
-      directives['script-src'] = directives['script-src'].sub(%r{ 'nonce-[^']+'\z}, '')
+      script_src = directives['script-src'].to_s
+      expect(script_src.scan(%r{'nonce-[^']+'}).size).to eq(1)
+      expect(script_src).to match(%r{ 'nonce-[^']+'\z})
+      directives['script-src'] = script_src.sub(%r{ 'nonce-[^']+'\z}, '')
 
       expect(directives).to eq(
         'base-uri'        => "'self'",
@@ -62,6 +67,7 @@ RSpec.describe 'Frame ancestors allowlist (NDESK-60)', type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(response.media_type).to eq('application/json')
+      expect(response.headers['Content-Security-Policy']).to be_present
       expect(csp_directives(response.headers['Content-Security-Policy'])['frame-ancestors']).to eq(allowlist)
       expect(response.headers['X-Frame-Options']).to be_nil
     end
