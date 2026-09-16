@@ -29,7 +29,9 @@ RSpec.describe 'Frame ancestors allowlist (NDESK-60)', type: :request do
     before { get '/' }
 
     it 'libera exatamente self e as duas origens do NChat, sem X-Frame-Options', :aggregate_failures do
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(:ok), lambda {
+        "GET / respondeu #{response.status}: #{response.body.to_s.gsub(%r{\s+}, ' ')[0, 1200]}"
+      }
       expect(response.media_type).to eq('text/html')
       expect(response.headers['Content-Security-Policy']).to be_present
       expect(csp_directives(response.headers['Content-Security-Policy'])['frame-ancestors']).to eq(allowlist)
