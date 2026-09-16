@@ -23,7 +23,7 @@
 
 - Toda merge em `newbyte-stable` DEVE ser acompanhada de uma tag
 - Formato da tag: `nb.v{major}.{minor}` (ex: `nb.v1.3`)
-- A tag mais recente ate esta sessao: `nb.v1.3`
+- A tag mais recente ate esta sessao: `nb.v1.6`
 - Fluxo de merge:
   ```bash
   # 1. Merge via API
@@ -220,3 +220,28 @@ Arquivos modificados:
   `spec/requests/knowledge_base_public/custom_path_spec.rb`, `spec/support/db_migration.rb`,
   `spec/requests/user/password_reset_spec.rb`, `spec/requests/user/email_verify_send_spec.rb`,
   `spec/requests/user/admin_password_auth_spec.rb`
+
+### 2026-09-16 - branch feat/nchat-embed-frame-ancestors (NDESK-60)
+
+**Branch**: `feat/nchat-embed-frame-ancestors`
+
+Alteracoes:
+
+- **Embed do NDesk nos Aplicativos do NChat**: a CSP global declara
+  `frame-ancestors 'self' https://chat.newbyte.net.br https://nchat.newbyte.net.br`; o
+  `X-Frame-Options: SAMEORIGIN` do Rails sai dos headers padrão (logo após `load_defaults 8.1`, que
+  substitui o hash inteiro); a política de download de anexos passa a
+  `default-src 'none'; frame-ancestors 'self'`. Nenhuma outra diretiva muda. Contrato e limitações do
+  lado do NChat (`allow=` no iframe, credenciais na URL do `chat` antigo, auth só por senha/TOTP no
+  embed) na ADR `docs/adr/0001-nchat-embed-frame-ancestors.md`; follow-up no NChat: NCHATV4-271.
+
+Arquivos modificados:
+
+- `config/initializers/content_security_policy.rb`
+- `config/application.rb`
+- `app/controllers/application_controller/has_download.rb`
+- `spec/requests/frame_ancestors_spec.rb` (novo)
+- `spec/requests/ticket/article_attachments_spec.rb`
+- `docs/adr/0001-nchat-embed-frame-ancestors.md` (novo)
+- `docs/plans/2026-09-16-nchat-embed-frame-ancestors-design.md` e
+  `docs/plans/2026-09-16-nchat-embed-frame-ancestors.md` (novos)
