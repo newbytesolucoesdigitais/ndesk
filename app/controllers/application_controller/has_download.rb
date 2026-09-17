@@ -32,6 +32,11 @@ module ApplicationController::HasDownload
   end
 
   def set_null_csp
-    request.content_security_policy = ActionDispatch::ContentSecurityPolicy.new.tap { |p| p.default_src :none }
+    request.content_security_policy = ActionDispatch::ContentSecurityPolicy.new.tap do |p|
+      p.default_src :none
+      # NDESK-60: default-src não é fallback de frame-ancestors; sem o X-Frame-Options, esta
+      # diretiva preserva a postura SAMEORIGIN dos anexos servidos inline.
+      p.frame_ancestors :self
+    end
   end
 end

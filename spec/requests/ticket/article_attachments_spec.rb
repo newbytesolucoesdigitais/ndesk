@@ -56,7 +56,8 @@ RSpec.describe 'Ticket Article Attachments', authenticated_as: -> { agent }, typ
           expect(response).to have_http_status(:ok)
           expect(response.body).to eq('some content')
           # Ensure restrictive CSP for downloads.
-          expect(response.headers['Content-Security-Policy']).to eq("default-src 'none'")
+          # NDESK-60: sem X-Frame-Options, a política de download declara frame-ancestors 'self'.
+          expect(response.headers['Content-Security-Policy']).to eq("default-src 'none'; frame-ancestors 'self'")
 
           get "/api/v1/ticket_attachment/#{ticket2.id}/#{article2.id}/#{store_file.id}", params: {}
           expect(response).to have_http_status(:forbidden)
@@ -237,7 +238,7 @@ RSpec.describe 'Ticket Article Attachments', authenticated_as: -> { agent }, typ
 
       it 'clamps range end to file size' do
         get "/api/v1/ticket_attachment/#{ticket1.id}/#{article1.id}/#{store_file.id}",
-            headers: { 'Range' => "bytes=0-99999" }
+            headers: { 'Range' => 'bytes=0-99999' }
 
         expect(response).to have_http_status(:partial_content)
         expect(response.body).to eq(store_file_content)

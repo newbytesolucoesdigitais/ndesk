@@ -23,6 +23,11 @@ module Zammad
     # own example in spec/config/framework_defaults_spec.rb.
     config.load_defaults 8.1
 
+    # NDESK-60: framing é governado por `frame-ancestors` na CSP; o X-Frame-Options não tem sintaxe
+    # de allowlist e contradiria a política. Tem de vir DEPOIS do load_defaults, que substitui o hash
+    # inteiro de default_headers (um delete antes dele é desfeito em silêncio).
+    config.action_dispatch.default_headers.delete('X-Frame-Options')
+
     Rails.autoloaders.each do |autoloader|
       autoloader.ignore            "#{config.root}/app/frontend"
       autoloader.do_not_eager_load "#{config.root}/lib/core_ext"
